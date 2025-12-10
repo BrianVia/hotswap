@@ -1,0 +1,77 @@
+{
+  "name": "hotswap",
+  "productName": "HotSwap",
+  "version": "0.1.0",
+  "description": "DynamoDB Explorer for AWS SSO profiles",
+  "private": true,
+  "type": "module",
+  "main": "electron-dist/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && NODE_ENV=development electron .",
+    "build": "npm run build:vite && npm run build:electron",
+    "build:vite": "tsc -b && vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "package": "npm run build && electron-builder",
+    "package:mac": "npm run build && electron-builder --mac",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.947.0",
+    "@aws-sdk/client-sso": "^3.947.0",
+    "@aws-sdk/client-sso-oidc": "^3.947.0",
+    "@aws-sdk/credential-provider-sso": "^3.947.0",
+    "@aws-sdk/lib-dynamodb": "^3.947.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "ini": "^6.0.0",
+    "lucide-react": "^0.556.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwind-merge": "^3.4.0",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@tailwindcss/postcss": "^4.1.17",
+    "@types/ini": "^4.1.1",
+    "@types/node": "^24.10.2",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.4.22",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.6",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.2.4",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.hotswap.app",
+    "productName": "HotSwap",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron-dist/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    }
+  }
+}
