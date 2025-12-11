@@ -8,6 +8,7 @@ import {
   type ColumnDef,
   type SortingState,
   type ColumnOrderState,
+  type VisibilityState,
 } from '@tanstack/react-table';
 import {
   Hash,
@@ -32,10 +33,16 @@ import {
   Pencil,
   Save,
   RotateCcw,
+  Eye,
+  EyeOff,
+  Copy,
+  Download,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { EditRowDialog } from './dialogs/EditRowDialog';
 import { BulkEditDialog } from './dialogs/BulkEditDialog';
+import { FieldPickerDialog } from './dialogs/FieldPickerDialog';
+import { ExportDialog } from './dialogs/ExportDialog';
 import { useTabsStore, type Tab } from '@/stores/tabs-store';
 import { useProfileStore } from '@/stores/profile-store';
 import { usePendingChangesStore, type PendingChange } from '@/stores/pending-changes-store';
@@ -1001,6 +1008,9 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
   const [isSaving, setIsSaving] = useState(false);
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [bulkEditField, setBulkEditField] = useState<string | null>(null);
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+  const [showFieldPicker, setShowFieldPicker] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   // Get PK and SK attribute names
   const hashKeyAttr = tableInfo.keySchema.find((k) => k.keyType === 'HASH')?.attributeName;
@@ -1069,6 +1079,54 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [contextMenu.visible]);
+
+  // Toggle column visibility
+  const toggleColumnVisibility = useCallback((columnId: string) => {
+    setHiddenColumns(prev => {
+      const next = new Set(prev);
+      if (next.has(columnId)) {
+        next.delete(columnId);
+      } else {
+        next.add(columnId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Copy rows to clipboard
+  const copyRowsToClipboard = useCallback((rowIndices: number[], fields?: string[]) => {
+    const rows = rowIndices.map(idx => {
+      const row = queryState.results[idx];
+      if (!row) return null;
+      if (fields) {
+        const filtered: Record<string, unknown> = {};
+        fields.forEach(f => {
+          if (f in row) filtered[f] = row[f];
+        });
+        return filtered;
+      }
+      return row;
+    }).filter(Boolean);
+
+    const json = JSON.stringify(rows.length === 1 ? rows[0] : rows, null, 2);
+    navigator.clipboard.writeText(json);
+  }, [queryState.results]);
+
+  // Get all field names from results
+  const allFieldNames = useMemo(() => {
+    const fields = new Set<string>();
+    queryState.results.forEach(row => {
+      Object.keys(row).forEach(key => fields.add(key));
+    });
+    // Sort with PK/SK first
+    return Array.from(fields).sort((a, b) => {
+      if (a === hashKeyAttr) return -1;
+      if (b === hashKeyAttr) return 1;
+      if (a === rangeKeyAttr) return -1;
+      if (b === rangeKeyAttr) return 1;
+      return a.localeCompare(b);
+    });
+  }, [queryState.results, hashKeyAttr, rangeKeyAttr]);
 
   const columns = useMemo<ColumnDef<Record<string, unknown>>[]>(() => {
     if (queryState.results.length === 0) return [];
@@ -1153,10 +1211,19 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
     }
   }, [columns.length]);
 
+  // Convert hiddenColumns Set to VisibilityState
+  const columnVisibility = useMemo<VisibilityState>(() => {
+    const visibility: VisibilityState = {};
+    hiddenColumns.forEach(col => {
+      visibility[col] = false;
+    });
+    return visibility;
+  }, [hiddenColumns]);
+
   const table = useReactTable({
     data: queryState.results,
     columns,
-    state: { sorting, columnOrder },
+    state: { sorting, columnOrder, columnVisibility },
     onSortingChange: setSorting,
     onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
@@ -1405,7 +1472,7 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
                       onDrop={(e) => handleDrop(e, header.id)}
                       onDragEnd={handleDragEnd}
                       className={cn(
-                        'px-2 py-1.5 text-left font-medium text-muted-foreground cursor-grab active:cursor-grabbing whitespace-nowrap',
+                        'px-2 py-1.5 text-left font-medium text-muted-foreground cursor-grab active:cursor-grabbing whitespace-nowrap group',
                         draggedColumn === header.id && 'opacity-50'
                       )}
                       style={{ minWidth: '120px' }}
@@ -1418,6 +1485,16 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
                               header.column.columnDef.header,
                               header.getContext()
                             )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleColumnVisibility(header.id);
+                          }}
+                          className="ml-auto p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity"
+                          title="Hide column"
+                        >
+                          <EyeOff className="h-3 w-3" />
+                        </button>
                       </div>
                     </th>
                   ))}
@@ -1496,6 +1573,16 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
           {selectedRows.size > 0 && (
             <span className="text-blue-500">({selectedRows.size} selected)</span>
           )}
+          {hiddenColumns.size > 0 && (
+            <button
+              onClick={() => setHiddenColumns(new Set())}
+              className="flex items-center gap-1 text-amber-500 hover:text-amber-400"
+              title="Show all columns"
+            >
+              <Eye className="h-3 w-3" />
+              <span>{hiddenColumns.size} hidden</span>
+            </button>
+          )}
           {queryState.scannedCount > queryState.count && (
             <span className="text-muted-foreground/60">({queryState.scannedCount.toLocaleString()} scanned)</span>
           )}
@@ -1544,6 +1631,40 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
           className="fixed z-50 min-w-[180px] bg-popover border rounded-md shadow-lg py-1"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
+          {/* Copy options */}
+          <button
+            onClick={() => {
+              const rowsToCopy = selectedRows.size > 0 ? Array.from(selectedRows) : (contextMenu.rowIndex !== null ? [contextMenu.rowIndex] : []);
+              copyRowsToClipboard(rowsToCopy);
+              setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copy {selectedRows.size > 1 ? `${selectedRows.size} rows` : 'row'}
+          </button>
+          <button
+            onClick={() => {
+              setShowFieldPicker(true);
+              setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            Copy with filter...
+          </button>
+          <button
+            onClick={() => {
+              setShowExportDialog(true);
+              setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export...
+          </button>
+          <div className="border-t my-1" />
+          {/* Edit options */}
           {selectedRows.size <= 1 && contextMenu.rowIndex !== null && (
             <button
               onClick={() => {
@@ -1577,7 +1698,7 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
               </div>
             </div>
           )}
-          {selectedRows.size > 1 && <div className="border-t my-1" />}
+          <div className="border-t my-1" />
           <button
             onClick={handleDeleteRow}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors text-red-500"
@@ -1668,6 +1789,30 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
           tableInfo={tableInfo}
         />
       )}
+
+      {/* Field Picker Dialog */}
+      <FieldPickerDialog
+        isOpen={showFieldPicker}
+        onClose={() => setShowFieldPicker(false)}
+        fields={allFieldNames}
+        rowCount={selectedRows.size > 0 ? selectedRows.size : (contextMenu.rowIndex !== null ? 1 : queryState.results.length)}
+        onCopy={(selectedFields) => {
+          const rowIndices = selectedRows.size > 0
+            ? Array.from(selectedRows)
+            : (contextMenu.rowIndex !== null ? [contextMenu.rowIndex] : queryState.results.map((_, i) => i));
+          copyRowsToClipboard(rowIndices, selectedFields);
+        }}
+      />
+
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        fields={allFieldNames}
+        rows={queryState.results}
+        selectedRowIndices={Array.from(selectedRows)}
+        tableName={tableInfo.tableName}
+      />
     </div>
   );
 }
