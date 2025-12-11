@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/BrianVia/hotswap/compare/v1.0.1...v1.0.2) (2025-12-11)
+
+
+### Bug Fixes
+
+* configure electron-builder to publish to existing releases ([d18588c](https://github.com/BrianVia/hotswap/commit/d18588ca44ec63134f82972f7164538cd12d4d62))
+
 ## [1.0.1](https://github.com/BrianVia/hotswap/compare/v1.0.0...v1.0.1) (2025-12-11)
 
 
