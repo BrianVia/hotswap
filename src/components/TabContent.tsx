@@ -378,11 +378,38 @@ interface TabQueryBuilderProps {
   tableInfo: TableInfo;
 }
 
-function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
+const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
   const { updateTabQueryState } = useTabsStore();
   const queryState = tab.queryState;
   const profileName = tab.profileName;
   const [showSkCondition, setShowSkCondition] = useState(false);
+
+  // Local state for inputs - provides instant feedback without waiting for store re-render
+  const [localPkValue, setLocalPkValue] = useState(queryState.pkValue);
+  const [localSkValue, setLocalSkValue] = useState(queryState.skValue);
+  const [localSkEndValue, setLocalSkEndValue] = useState(queryState.skValue2); // For "between" operator
+
+  // Sync local state when store changes externally (e.g., clear button, tab switch)
+  useEffect(() => {
+    setLocalPkValue(queryState.pkValue);
+  }, [queryState.pkValue]);
+
+  useEffect(() => {
+    setLocalSkValue(queryState.skValue);
+  }, [queryState.skValue]);
+
+  useEffect(() => {
+    setLocalSkEndValue(queryState.skValue2);
+  }, [queryState.skValue2]);
+
+  // Flush local values to store (called on blur and before running query)
+  const flushToStore = useCallback(() => {
+    updateTabQueryState(tab.id, {
+      pkValue: localPkValue,
+      skValue: localSkValue,
+      skValue2: localSkEndValue,
+    });
+  }, [tab.id, localPkValue, localSkValue, localSkEndValue, updateTabQueryState]);
 
   // Build list of all available partition key attributes with their index
   const pkOptions = useMemo(() => {
@@ -500,10 +527,15 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
 
   // Use batch API - single IPC call with backend pagination and progress events
   const handleRunQuery = async () => {
-    if (!profileName || !queryState.pkValue) return;
+    if (!profileName || !localPkValue.trim()) return;
 
     const startTime = Date.now();
     updateTabQueryState(tab.id, {
+      // Persist local values to store
+      pkValue: localPkValue,
+      skValue: localSkValue,
+      skValue2: localSkEndValue,
+      // Reset query state
       isLoading: true,
       error: null,
       results: [],
@@ -537,18 +569,19 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
         tableName: tableInfo.tableName,
         indexName: queryState.selectedIndex || undefined,
         keyCondition: {
-          pk: { name: pkAttr?.attributeName || '', value: queryState.pkValue },
+          pk: { name: pkAttr?.attributeName || '', value: localPkValue },
         },
         filters: validFilters.length > 0 ? validFilters : undefined,
         scanIndexForward: queryState.scanForward,
       };
 
-      if (skAttr && queryState.skValue) {
+      // Use local SK values (not store values) since store update is async
+      if (skAttr && localSkValue) {
         params.keyCondition.sk = {
           name: skAttr.attributeName,
           operator: queryState.skOperator,
-          value: queryState.skValue,
-          value2: queryState.skOperator === 'between' ? queryState.skValue2 : undefined,
+          value: localSkValue,
+          value2: queryState.skOperator === 'between' ? localSkEndValue : undefined,
         };
       }
 
@@ -639,13 +672,13 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && queryState.pkValue.trim()) {
+    if (e.key === 'Enter' && localPkValue.trim()) {
       e.preventDefault();
-      handleRunQuery();
+      handleRunQuery(); // Uses local values directly, persists to store
     }
   };
 
-  const canQuery = queryState.pkValue.trim().length > 0;
+  const canQuery = localPkValue.trim().length > 0;
 
   return (
     <div className="bg-card">
@@ -672,8 +705,9 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
         {/* PK Value input */}
         <input
           type="text"
-          value={queryState.pkValue}
-          onChange={(e) => updateTabQueryState(tab.id, { pkValue: e.target.value })}
+          value={localPkValue}
+          onChange={(e) => setLocalPkValue(e.target.value)}
+          onBlur={flushToStore}
           onKeyDown={handleKeyDown}
           placeholder={`Enter ${pkAttr?.attributeName || 'pk'} value`}
           className="flex-1 min-w-0 h-8 px-2 rounded border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
@@ -743,9 +777,9 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
               <ChevronRight className="h-3 w-3" />
             )}
             Sort Key: {skAttr.attributeName}
-            {queryState.skValue && (
+            {localSkValue && (
               <span className="ml-1 px-1 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px]">
-                {SK_OPERATORS.find(o => o.value === queryState.skOperator)?.label} "{queryState.skValue}"
+                {SK_OPERATORS.find(o => o.value === queryState.skOperator)?.label} "{localSkValue}"
               </span>
             )}
           </button>
@@ -768,8 +802,9 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
               </div>
               <input
                 type="text"
-                value={queryState.skValue}
-                onChange={(e) => updateTabQueryState(tab.id, { skValue: e.target.value })}
+                value={localSkValue}
+                onChange={(e) => setLocalSkValue(e.target.value)}
+                onBlur={flushToStore}
                 onKeyDown={handleKeyDown}
                 placeholder={`${skAttr.attributeName} value`}
                 className={cn(
@@ -782,17 +817,22 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
                   <span className="text-xs text-muted-foreground">and</span>
                   <input
                     type="text"
-                    value={queryState.skValue2}
-                    onChange={(e) => updateTabQueryState(tab.id, { skValue2: e.target.value })}
+                    value={localSkEndValue}
+                    onChange={(e) => setLocalSkEndValue(e.target.value)}
+                    onBlur={flushToStore}
                     onKeyDown={handleKeyDown}
                     placeholder="end value"
                     className="flex-1 h-8 px-2 rounded border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </>
               )}
-              {queryState.skValue && (
+              {localSkValue && (
                 <button
-                  onClick={() => updateTabQueryState(tab.id, { skValue: '', skValue2: '' })}
+                  onClick={() => {
+                    setLocalSkValue('');
+                    setLocalSkEndValue('');
+                    updateTabQueryState(tab.id, { skValue: '', skValue2: '' });
+                  }}
                   className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
                   title="Clear sort key condition"
                 >
@@ -964,7 +1004,23 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render when query builder relevant data changes
+  // Ignore results, loading states, counts (those are for the results table)
+  const prevQ = prevProps.tab.queryState;
+  const nextQ = nextProps.tab.queryState;
+
+  return (
+    prevProps.tab.id === nextProps.tab.id &&
+    prevProps.tab.profileName === nextProps.tab.profileName &&
+    prevProps.tableInfo === nextProps.tableInfo &&
+    prevQ.selectedIndex === nextQ.selectedIndex &&
+    prevQ.scanForward === nextQ.scanForward &&
+    prevQ.skOperator === nextQ.skOperator &&
+    prevQ.filters === nextQ.filters &&
+    prevQ.maxResults === nextQ.maxResults
+  );
+});
 
 interface TabResultsTableProps {
   tab: Tab;
@@ -979,7 +1035,7 @@ interface ContextMenuState {
   rowIndex: number | null;
 }
 
-function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) {
+const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) {
   const { updateTabQueryState } = useTabsStore();
   const { selectedProfile } = useProfileStore();
   const {
@@ -1815,7 +1871,27 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
       />
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render when relevant data changes
+  // Ignore pkValue, skValue, skValue2 changes (input fields)
+  const prevQ = prevProps.tab.queryState;
+  const nextQ = nextProps.tab.queryState;
+
+  return (
+    prevProps.tab.id === nextProps.tab.id &&
+    prevProps.tab.profileName === nextProps.tab.profileName &&
+    prevProps.tableInfo === nextProps.tableInfo &&
+    prevQ.results === nextQ.results &&
+    prevQ.isLoading === nextQ.isLoading &&
+    prevQ.isFetchingMore === nextQ.isFetchingMore &&
+    prevQ.error === nextQ.error &&
+    prevQ.count === nextQ.count &&
+    prevQ.scannedCount === nextQ.scannedCount &&
+    prevQ.lastEvaluatedKey === nextQ.lastEvaluatedKey &&
+    prevQ.selectedIndex === nextQ.selectedIndex &&
+    prevQ.scanForward === nextQ.scanForward
+  );
+});
 
 export function TabContent() {
   const { tabs, activeTabId, updateTabQueryState } = useTabsStore();
