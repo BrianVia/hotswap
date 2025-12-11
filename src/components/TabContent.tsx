@@ -1347,7 +1347,7 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
   }
 
   return (
-    <div className="border rounded-lg bg-card flex flex-col">
+    <div className="border rounded-lg bg-card flex flex-col overflow-hidden">
       {/* Pending Changes Bar */}
       {hasPendingChanges && (
         <div className="flex items-center justify-between px-3 py-2 bg-amber-500/10 border-b border-amber-500/30">
@@ -1392,7 +1392,7 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
           className="overflow-auto flex-1"
           style={{ maxHeight: hasPendingChanges ? 'calc(100vh - 320px)' : 'calc(100vh - 280px)' }}
         >
-          <table className="w-full text-sm">
+          <table className="text-sm border-collapse" style={{ minWidth: 'max-content' }}>
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id} className="border-b">
@@ -1405,9 +1405,10 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
                       onDrop={(e) => handleDrop(e, header.id)}
                       onDragEnd={handleDragEnd}
                       className={cn(
-                        'px-2 py-1.5 text-left font-medium text-muted-foreground cursor-grab active:cursor-grabbing',
+                        'px-2 py-1.5 text-left font-medium text-muted-foreground cursor-grab active:cursor-grabbing whitespace-nowrap',
                         draggedColumn === header.id && 'opacity-50'
                       )}
+                      style={{ minWidth: '120px' }}
                     >
                       <div className="flex items-center gap-1">
                         <GripVertical className="h-3 w-3 opacity-30" />
@@ -1456,11 +1457,17 @@ function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) 
                     style={{ height: `${virtualRow.size}px` }}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-2 py-1 align-top max-w-xs truncate">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
+                      <td
+                        key={cell.id}
+                        className="px-2 py-1 align-top whitespace-nowrap"
+                        style={{ minWidth: '120px', maxWidth: '400px' }}
+                      >
+                        <div className="truncate">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </div>
                       </td>
                     ))}
                   </tr>
@@ -1891,7 +1898,7 @@ export function TabContent() {
   };
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto overflow-x-hidden">
       {/* Header */}
       <div className="sticky top-0 bg-background border-b p-4 z-10">
         <div className="flex items-start justify-between">
@@ -1995,7 +2002,7 @@ export function TabContent() {
       </div>
 
       {/* Main Content */}
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 min-w-0">
         {/* Compact Query Builder */}
         <div className="border rounded-lg overflow-hidden">
           <TabQueryBuilder tab={activeTab} tableInfo={tableInfo} />
