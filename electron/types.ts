@@ -61,6 +61,16 @@ export interface LocalSecondaryIndex {
   };
 }
 
+export type FilterOperator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'begins_with' | 'contains' | 'exists' | 'not_exists' | 'between';
+
+export interface FilterCondition {
+  id: string;
+  attribute: string;
+  operator: FilterOperator;
+  value: string;
+  value2?: string; // for 'between'
+}
+
 export interface QueryParams {
   tableName: string;
   indexName?: string;
@@ -68,7 +78,7 @@ export interface QueryParams {
     pk: { name: string; value: string };
     sk?: { name: string; operator: 'eq' | 'begins_with' | 'between' | 'lt' | 'lte' | 'gt' | 'gte'; value: string; value2?: string };
   };
-  filterExpression?: string;
+  filters?: FilterCondition[];
   limit?: number;
   scanIndexForward?: boolean;
   exclusiveStartKey?: Record<string, unknown>;
@@ -79,4 +89,16 @@ export interface QueryResult {
   lastEvaluatedKey?: Record<string, unknown>;
   count: number;
   scannedCount: number;
+}
+
+export interface BatchQueryResult extends QueryResult {
+  elapsedMs: number;
+}
+
+export interface QueryProgress {
+  count: number;
+  scannedCount: number;
+  elapsedMs: number;
+  items?: Record<string, unknown>[]; // Batch of items just fetched
+  isComplete?: boolean;              // Signals pagination complete
 }

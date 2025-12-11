@@ -15,6 +15,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "package": "npm run build && electron-builder",
     "package:mac": "npm run build && electron-builder --mac",
+    "package:linux": "npm run build && electron-builder --linux",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -24,6 +25,8 @@
     "@aws-sdk/client-sso-oidc": "^3.947.0",
     "@aws-sdk/credential-provider-sso": "^3.947.0",
     "@aws-sdk/lib-dynamodb": "^3.947.0",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "ini": "^6.0.0",
@@ -72,6 +75,12 @@
         "dmg",
         "zip"
       ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development"
     }
   }
 }

@@ -1,6 +1,10 @@
-import { Key, Hash, Table2, Loader2, Layers, Database } from 'lucide-react';
+import { Hash, Table2, Loader2, Layers, Database, ChevronDown, ChevronRight, Filter } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useTableStore } from '@/stores/table-store';
 import { useProfileStore } from '@/stores/profile-store';
+import { useQueryStore } from '@/stores/query-store';
+import { QueryBuilder } from './QueryBuilder';
+import { ResultsTable } from './ResultsTable';
 
 function formatBytes(bytes: number | undefined): string {
   if (bytes === undefined) return '-';
@@ -18,6 +22,20 @@ function formatNumber(num: number | undefined): string {
 export function TableInfo() {
   const { selectedTable, isLoadingTableInfo } = useTableStore();
   const { selectedProfile } = useProfileStore();
+  const { executeScan, results, clearResults, resetQueryParams } = useQueryStore();
+  const [schemaExpanded, setSchemaExpanded] = useState(false);
+  const [queryExpanded, setQueryExpanded] = useState(true);
+  const lastScannedTable = useRef<string | null>(null);
+
+  // Auto-scan when a new table is selected
+  useEffect(() => {
+    if (selectedTable && selectedProfile && selectedTable.tableName !== lastScannedTable.current) {
+      lastScannedTable.current = selectedTable.tableName;
+      clearResults();
+      resetQueryParams();
+      executeScan(selectedProfile.name, selectedTable.tableName);
+    }
+  }, [selectedTable?.tableName, selectedProfile?.name]);
 
   if (!selectedProfile) {
     return (
@@ -63,106 +81,136 @@ export function TableInfo() {
   return (
     <div className="h-full overflow-y-auto">
       {/* Header */}
-      <div className="sticky top-0 bg-background border-b p-4">
-        <h2 className="text-lg font-semibold truncate">{selectedTable.tableName}</h2>
-        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-          <span>{formatNumber(selectedTable.itemCount)} items</span>
-          <span>·</span>
-          <span>{formatBytes(selectedTable.tableSizeBytes)}</span>
-          <span>·</span>
-          <span className={
-            selectedTable.tableStatus === 'ACTIVE' 
-              ? 'text-green-500' 
-              : 'text-yellow-500'
-          }>
-            {selectedTable.tableStatus}
-          </span>
+      <div className="sticky top-0 bg-background border-b p-4 z-10">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold truncate">{selectedTable.tableName}</h2>
+            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+              <span>{formatNumber(selectedTable.itemCount)} items</span>
+              <span>·</span>
+              <span>{formatBytes(selectedTable.tableSizeBytes)}</span>
+              <span>·</span>
+              <span className={
+                selectedTable.tableStatus === 'ACTIVE'
+                  ? 'text-green-500'
+                  : 'text-yellow-500'
+              }>
+                {selectedTable.tableStatus}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setSchemaExpanded(!schemaExpanded)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {schemaExpanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+            Schema
+          </button>
         </div>
-      </div>
 
-      <div className="p-4 space-y-6">
-        {/* Primary Key */}
-        <section>
-          <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-            <Key className="h-4 w-4" />
-            Primary Key
-          </h3>
-          <div className="space-y-2">
-            {hashKey && (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+        {/* Collapsible Schema Info */}
+        {schemaExpanded && (
+          <div className="mt-4 pt-4 border-t space-y-4">
+            {/* Primary Key */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm">
                 <Hash className="h-4 w-4 text-blue-500" />
-                <div>
-                  <div className="font-medium">{hashKey.attributeName}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Partition Key · {getAttributeType(hashKey.attributeName)}
+                <span className="font-medium">{hashKey?.attributeName}</span>
+                <span className="text-xs text-muted-foreground">
+                  ({getAttributeType(hashKey?.attributeName || '')})
+                </span>
+              </div>
+              {rangeKey && (
+                <>
+                  <span className="text-muted-foreground">+</span>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Layers className="h-4 w-4 text-purple-500" />
+                    <span className="font-medium">{rangeKey.attributeName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({getAttributeType(rangeKey.attributeName)})
+                    </span>
                   </div>
+                </>
+              )}
+            </div>
+
+            {/* GSIs */}
+            {selectedTable.globalSecondaryIndexes && selectedTable.globalSecondaryIndexes.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-2">
+                  GSIs ({selectedTable.globalSecondaryIndexes.length})
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedTable.globalSecondaryIndexes.map((gsi) => {
+                    const gsiHash = gsi.keySchema.find((k) => k.keyType === 'HASH');
+                    const gsiRange = gsi.keySchema.find((k) => k.keyType === 'RANGE');
+                    return (
+                      <div key={gsi.indexName} className="px-2 py-1 rounded bg-muted text-xs">
+                        <span className="font-medium">{gsi.indexName}</span>
+                        <span className="text-muted-foreground ml-1">
+                          ({gsiHash?.attributeName}{gsiRange && ` + ${gsiRange.attributeName}`})
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
-            {rangeKey && (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <Layers className="h-4 w-4 text-purple-500" />
-                <div>
-                  <div className="font-medium">{rangeKey.attributeName}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Sort Key · {getAttributeType(rangeKey.attributeName)}
-                  </div>
+
+            {/* LSIs */}
+            {selectedTable.localSecondaryIndexes && selectedTable.localSecondaryIndexes.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-2">
+                  LSIs ({selectedTable.localSecondaryIndexes.length})
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedTable.localSecondaryIndexes.map((lsi) => {
+                    const lsiRange = lsi.keySchema.find((k) => k.keyType === 'RANGE');
+                    return (
+                      <div key={lsi.indexName} className="px-2 py-1 rounded bg-muted text-xs">
+                        <span className="font-medium">{lsi.indexName}</span>
+                        <span className="text-muted-foreground ml-1">
+                          ({hashKey?.attributeName}{lsiRange && ` + ${lsiRange.attributeName}`})
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
-        </section>
-
-        {/* Global Secondary Indexes */}
-        {selectedTable.globalSecondaryIndexes && selectedTable.globalSecondaryIndexes.length > 0 && (
-          <section>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              Global Secondary Indexes ({selectedTable.globalSecondaryIndexes.length})
-            </h3>
-            <div className="space-y-2">
-              {selectedTable.globalSecondaryIndexes.map((gsi) => {
-                const gsiHash = gsi.keySchema.find((k) => k.keyType === 'HASH');
-                const gsiRange = gsi.keySchema.find((k) => k.keyType === 'RANGE');
-                return (
-                  <div key={gsi.indexName} className="p-3 rounded-lg border">
-                    <div className="font-medium text-sm">{gsi.indexName}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {gsiHash?.attributeName}
-                      {gsiRange && ` + ${gsiRange.attributeName}`}
-                      {' · '}
-                      {gsi.projection.projectionType}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
         )}
+      </div>
 
-        {/* Local Secondary Indexes */}
-        {selectedTable.localSecondaryIndexes && selectedTable.localSecondaryIndexes.length > 0 && (
-          <section>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              Local Secondary Indexes ({selectedTable.localSecondaryIndexes.length})
-            </h3>
-            <div className="space-y-2">
-              {selectedTable.localSecondaryIndexes.map((lsi) => {
-                const lsiRange = lsi.keySchema.find((k) => k.keyType === 'RANGE');
-                return (
-                  <div key={lsi.indexName} className="p-3 rounded-lg border">
-                    <div className="font-medium text-sm">{lsi.indexName}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {hashKey?.attributeName}
-                      {lsiRange && ` + ${lsiRange.attributeName}`}
-                      {' · '}
-                      {lsi.projection.projectionType}
-                    </div>
-                  </div>
-                );
-              })}
+      {/* Main Content: Query Builder + Results */}
+      <div className="p-4 space-y-4">
+        {/* Collapsible Query Builder */}
+        <div className="border rounded-lg bg-card">
+          <button
+            onClick={() => setQueryExpanded(!queryExpanded)}
+            className="w-full flex items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              Query Builder
             </div>
-          </section>
-        )}
+            {queryExpanded ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+          {queryExpanded && (
+            <div className="border-t">
+              <QueryBuilder tableInfo={selectedTable} />
+            </div>
+          )}
+        </div>
+        <ResultsTable />
       </div>
     </div>
   );

@@ -1,8 +1,10 @@
 import { ipcMain, nativeTheme, BrowserWindow } from 'electron';
 import { ListTablesCommand, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
+import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { parseAwsConfig } from '../services/config-parser.js';
 import { checkAuthStatus, loginWithSSO } from '../services/credential-manager.js';
-import { getDynamoDBClient, clearClientsForProfile } from '../services/dynamo-client-factory.js';
+import { getDynamoDBClient, getDynamoDBDocClient, clearClientsForProfile } from '../services/dynamo-client-factory.js';
+import { buildQueryCommand, buildScanCommand } from '../services/query-executor.js';
 export function registerIpcHandlers() {
     // ============ Profile Operations ============
     ipcMain.handle('aws:get-profiles', async () => {
@@ -112,6 +114,161 @@ export function registerIpcHandlers() {
         }
         catch (error) {
             console.error('Failed to describe table:', error);
+            throw error;
+        }
+    });
+    // ============ DynamoDB Query/Scan Operations ============
+    ipcMain.handle('dynamo:query', async (_event, profileName, params) => {
+        try {
+            const docClient = await getDynamoDBDocClient(profileName);
+            const commandInput = buildQueryCommand(params);
+            const command = new QueryCommand(commandInput);
+            const response = await docClient.send(command);
+            return {
+                items: response.Items || [],
+                lastEvaluatedKey: response.LastEvaluatedKey,
+                count: response.Count || 0,
+                scannedCount: response.ScannedCount || 0,
+            };
+        }
+        catch (error) {
+            console.error('Query failed:', error);
+            throw error;
+        }
+    });
+    ipcMain.handle('dynamo:scan', async (_event, profileName, params) => {
+        try {
+            const docClient = await getDynamoDBDocClient(profileName);
+            const commandInput = buildScanCommand(params);
+            const command = new ScanCommand(commandInput);
+            const response = await docClient.send(command);
+            return {
+                items: response.Items || [],
+                lastEvaluatedKey: response.LastEvaluatedKey,
+                count: response.Count || 0,
+                scannedCount: response.ScannedCount || 0,
+            };
+        }
+        catch (error) {
+            console.error('Scan failed:', error);
+            throw error;
+        }
+    });
+    // ============ Batch Query/Scan (with progress) ============
+    const PROGRESS_THROTTLE_MS = 150;
+    ipcMain.handle('dynamo:query-batch', async (event, profileName, params, maxResults) => {
+        try {
+            const docClient = await getDynamoDBDocClient(profileName);
+            const allItems = [];
+            let totalCount = 0;
+            let totalScanned = 0;
+            let lastKey = params.exclusiveStartKey;
+            const startTime = Date.now();
+            let lastProgressTime = 0;
+            let pendingItems = []; // Items waiting to be sent
+            while (allItems.length < maxResults) {
+                const commandInput = buildQueryCommand({ ...params, exclusiveStartKey: lastKey });
+                const command = new QueryCommand(commandInput);
+                const response = await docClient.send(command);
+                const batchItems = response.Items || [];
+                allItems.push(...batchItems);
+                pendingItems.push(...batchItems);
+                totalCount += response.Count || 0;
+                totalScanned += response.ScannedCount || 0;
+                lastKey = response.LastEvaluatedKey;
+                // Push throttled progress with items to renderer
+                const now = Date.now();
+                if (now - lastProgressTime >= PROGRESS_THROTTLE_MS) {
+                    lastProgressTime = now;
+                    const progress = {
+                        count: allItems.length,
+                        scannedCount: totalScanned,
+                        elapsedMs: now - startTime,
+                        items: pendingItems,
+                    };
+                    event.sender.send('query-progress', progress);
+                    pendingItems = []; // Reset pending items after sending
+                }
+                if (!lastKey)
+                    break;
+            }
+            // Send final progress with any remaining items and completion signal
+            const finalProgress = {
+                count: allItems.length,
+                scannedCount: totalScanned,
+                elapsedMs: Date.now() - startTime,
+                items: pendingItems,
+                isComplete: true,
+            };
+            event.sender.send('query-progress', finalProgress);
+            return {
+                items: allItems,
+                lastEvaluatedKey: lastKey,
+                count: totalCount,
+                scannedCount: totalScanned,
+                elapsedMs: Date.now() - startTime,
+            };
+        }
+        catch (error) {
+            console.error('Batch query failed:', error);
+            throw error;
+        }
+    });
+    ipcMain.handle('dynamo:scan-batch', async (event, profileName, params, maxResults) => {
+        try {
+            const docClient = await getDynamoDBDocClient(profileName);
+            const allItems = [];
+            let totalCount = 0;
+            let totalScanned = 0;
+            let lastKey = params.exclusiveStartKey;
+            const startTime = Date.now();
+            let lastProgressTime = 0;
+            let pendingItems = []; // Items waiting to be sent
+            while (allItems.length < maxResults) {
+                const commandInput = buildScanCommand({ ...params, exclusiveStartKey: lastKey });
+                const command = new ScanCommand(commandInput);
+                const response = await docClient.send(command);
+                const batchItems = response.Items || [];
+                allItems.push(...batchItems);
+                pendingItems.push(...batchItems);
+                totalCount += response.Count || 0;
+                totalScanned += response.ScannedCount || 0;
+                lastKey = response.LastEvaluatedKey;
+                // Push throttled progress with items to renderer
+                const now = Date.now();
+                if (now - lastProgressTime >= PROGRESS_THROTTLE_MS) {
+                    lastProgressTime = now;
+                    const progress = {
+                        count: allItems.length,
+                        scannedCount: totalScanned,
+                        elapsedMs: now - startTime,
+                        items: pendingItems,
+                    };
+                    event.sender.send('query-progress', progress);
+                    pendingItems = []; // Reset pending items after sending
+                }
+                if (!lastKey)
+                    break;
+            }
+            // Send final progress with any remaining items and completion signal
+            const finalProgress = {
+                count: allItems.length,
+                scannedCount: totalScanned,
+                elapsedMs: Date.now() - startTime,
+                items: pendingItems,
+                isComplete: true,
+            };
+            event.sender.send('query-progress', finalProgress);
+            return {
+                items: allItems,
+                lastEvaluatedKey: lastKey,
+                count: totalCount,
+                scannedCount: totalScanned,
+                elapsedMs: Date.now() - startTime,
+            };
+        }
+        catch (error) {
+            console.error('Batch scan failed:', error);
             throw error;
         }
     });

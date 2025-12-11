@@ -8,6 +8,16 @@ const api = {
     // DynamoDB operations
     listTables: (profileName) => ipcRenderer.invoke('dynamo:list-tables', profileName),
     describeTable: (profileName, tableName) => ipcRenderer.invoke('dynamo:describe-table', profileName, tableName),
+    queryTable: (profileName, params) => ipcRenderer.invoke('dynamo:query', profileName, params),
+    scanTable: (profileName, params) => ipcRenderer.invoke('dynamo:scan', profileName, params),
+    // Batch operations (with progress)
+    queryTableBatch: (profileName, params, maxResults) => ipcRenderer.invoke('dynamo:query-batch', profileName, params, maxResults),
+    scanTableBatch: (profileName, params, maxResults) => ipcRenderer.invoke('dynamo:scan-batch', profileName, params, maxResults),
+    onQueryProgress: (callback) => {
+        const handler = (_event, progress) => callback(progress);
+        ipcRenderer.on('query-progress', handler);
+        return () => ipcRenderer.removeListener('query-progress', handler);
+    },
     // System
     getSystemTheme: () => ipcRenderer.invoke('system:get-theme'),
     onThemeChange: (callback) => {

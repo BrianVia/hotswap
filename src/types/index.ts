@@ -61,6 +61,58 @@ export interface LocalSecondaryIndex {
   };
 }
 
+// Query types
+export type SkOperator = 'eq' | 'begins_with' | 'between' | 'lt' | 'lte' | 'gt' | 'gte';
+export type FilterOperator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'begins_with' | 'contains' | 'exists' | 'not_exists' | 'between';
+
+export interface FilterCondition {
+  id: string;
+  attribute: string;
+  operator: FilterOperator;
+  value: string;
+  value2?: string; // for 'between'
+}
+
+export interface QueryParams {
+  tableName: string;
+  indexName?: string;
+  keyCondition: {
+    pk: { name: string; value: string };
+    sk?: { name: string; operator: SkOperator; value: string; value2?: string };
+  };
+  filters?: FilterCondition[];
+  limit?: number;
+  scanIndexForward?: boolean;
+  exclusiveStartKey?: Record<string, unknown>;
+}
+
+export interface QueryResult {
+  items: Record<string, unknown>[];
+  lastEvaluatedKey?: Record<string, unknown>;
+  count: number;
+  scannedCount: number;
+}
+
+export interface BatchQueryResult extends QueryResult {
+  elapsedMs: number;
+}
+
+export interface QueryProgress {
+  count: number;
+  scannedCount: number;
+  elapsedMs: number;
+  items?: Record<string, unknown>[]; // Batch of items just fetched
+  isComplete?: boolean;              // Signals pagination complete
+}
+
+export interface ScanParams {
+  tableName: string;
+  indexName?: string;
+  limit?: number;
+  exclusiveStartKey?: Record<string, unknown>;
+  filters?: FilterCondition[];
+}
+
 // Declare the hotswap API on window
 declare global {
   interface Window {
@@ -70,6 +122,11 @@ declare global {
       loginWithSSO: (profileName: string) => Promise<{ success: boolean; error?: string }>;
       listTables: (profileName: string) => Promise<string[]>;
       describeTable: (profileName: string, tableName: string) => Promise<TableInfo>;
+      queryTable: (profileName: string, params: QueryParams) => Promise<QueryResult>;
+      scanTable: (profileName: string, params: ScanParams) => Promise<QueryResult>;
+      queryTableBatch: (profileName: string, params: QueryParams, maxResults: number) => Promise<BatchQueryResult>;
+      scanTableBatch: (profileName: string, params: ScanParams, maxResults: number) => Promise<BatchQueryResult>;
+      onQueryProgress: (callback: (progress: QueryProgress) => void) => () => void;
       getSystemTheme: () => Promise<'light' | 'dark'>;
       onThemeChange: (callback: (theme: 'light' | 'dark') => void) => () => void;
     };
