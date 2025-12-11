@@ -37,12 +37,14 @@ import {
   EyeOff,
   Copy,
   Download,
+  Code,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { EditRowDialog } from './dialogs/EditRowDialog';
 import { BulkEditDialog } from './dialogs/BulkEditDialog';
 import { FieldPickerDialog } from './dialogs/FieldPickerDialog';
 import { ExportDialog } from './dialogs/ExportDialog';
+import { JsonEditorDialog } from './dialogs/JsonEditorDialog';
 import { useTabsStore, type Tab } from '@/stores/tabs-store';
 import { useProfileStore } from '@/stores/profile-store';
 import { usePendingChangesStore, type PendingChange } from '@/stores/pending-changes-store';
@@ -1063,6 +1065,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingRow, setEditingRow] = useState<number | null>(null);
+  const [jsonEditingRow, setJsonEditingRow] = useState<number | null>(null);
   const [bulkEditField, setBulkEditField] = useState<string | null>(null);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [showFieldPicker, setShowFieldPicker] = useState(false);
@@ -1722,16 +1725,28 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
           <div className="border-t my-1" />
           {/* Edit options */}
           {selectedRows.size <= 1 && contextMenu.rowIndex !== null && (
-            <button
-              onClick={() => {
-                setEditingRow(contextMenu.rowIndex);
-                setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
-              }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit Row...
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  setEditingRow(contextMenu.rowIndex);
+                  setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+                }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Row...
+              </button>
+              <button
+                onClick={() => {
+                  setJsonEditingRow(contextMenu.rowIndex);
+                  setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+                }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+              >
+                <Code className="h-3.5 w-3.5" />
+                View/Edit JSON...
+              </button>
+            </>
           )}
           {selectedRows.size > 1 && (
             <div className="px-3 py-1.5">
@@ -1828,6 +1843,18 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
           onClose={() => setEditingRow(null)}
           row={queryState.results[editingRow]}
           rowIndex={editingRow}
+          tabId={tab.id}
+          tableInfo={tableInfo}
+        />
+      )}
+
+      {/* JSON Editor Dialog */}
+      {jsonEditingRow !== null && queryState.results[jsonEditingRow] && (
+        <JsonEditorDialog
+          isOpen={jsonEditingRow !== null}
+          onClose={() => setJsonEditingRow(null)}
+          row={queryState.results[jsonEditingRow]}
+          rowIndex={jsonEditingRow}
           tabId={tab.id}
           tableInfo={tableInfo}
         />
