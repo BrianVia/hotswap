@@ -73,7 +73,8 @@
     "publish": {
       "provider": "github",
       "owner": "BrianVia",
-      "repo": "hotswap"
+      "repo": "hotswap",
+      "releaseType": "release"
     },
     "directories": {
       "output": "release"
