@@ -22,12 +22,14 @@ export function TabBar() {
             key={tab.id}
             className={cn(
               'flex items-center gap-2 px-3 py-1.5 border-r cursor-pointer group min-w-0 max-w-[280px]',
-              'hover:bg-muted/50 transition-colors',
+              'hover:bg-muted/50 transition-all duration-200',
               activeTabId === tab.id
                 ? 'bg-background border-b-2 border-b-primary'
-                : 'bg-muted/20'
+                : 'bg-muted/20',
+              tab.isNew && 'tab-enter',
+              tab.isClosing && 'tab-exit'
             )}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => !tab.isClosing && setActiveTab(tab.id)}
           >
             <span className={cn(
               'text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0',
@@ -40,7 +42,7 @@ export function TabBar() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                closeTab(tab.id);
+                if (!tab.isClosing) closeTab(tab.id);
               }}
               className="ml-auto p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
             >

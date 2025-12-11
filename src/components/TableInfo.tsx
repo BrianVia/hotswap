@@ -22,7 +22,7 @@ function formatNumber(num: number | undefined): string {
 export function TableInfo() {
   const { selectedTable, isLoadingTableInfo } = useTableStore();
   const { selectedProfile } = useProfileStore();
-  const { executeScan, results, clearResults, resetQueryParams } = useQueryStore();
+  const { executeScan, clearResults, resetQueryParams } = useQueryStore();
   const [schemaExpanded, setSchemaExpanded] = useState(false);
   const [queryExpanded, setQueryExpanded] = useState(true);
   const lastScannedTable = useRef<string | null>(null);

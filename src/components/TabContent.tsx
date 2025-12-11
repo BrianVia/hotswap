@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback, Fragment } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   useReactTable,
@@ -233,6 +233,26 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
   const pkAttr = keySchema.find((k) => k.keyType === 'HASH');
   const skAttr = keySchema.find((k) => k.keyType === 'RANGE');
 
+  // Extract available attribute names from fetched results for filter suggestions
+  const availableAttributes = useMemo(() => {
+    if (queryState.results.length === 0) return [];
+
+    const allKeys = new Set<string>();
+    queryState.results.forEach((item) => {
+      Object.keys(item).forEach((key) => allKeys.add(key));
+    });
+
+    return Array.from(allKeys).sort((a, b) => {
+      const pkSk = ['pk', 'PK', 'sk', 'SK', 'id', 'ID'];
+      const aIdx = pkSk.indexOf(a);
+      const bIdx = pkSk.indexOf(b);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [queryState.results]);
+
   // Auto-show SK condition when there's a sort key
   useEffect(() => {
     if (skAttr && queryState.skValue) {
@@ -396,97 +416,6 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
       updateTabQueryState(tab.id, {
         error: (error as Error).message,
         isLoading: false,
-        isFetchingMore: false,
-        queryElapsedMs: Date.now() - startTime,
-      });
-    } finally {
-      unsubscribe();
-    }
-  };
-
-  // Continue fetching more results beyond maxResults using batch API
-  const handleFetchMore = async () => {
-    if (!profileName || !queryState.lastEvaluatedKey) return;
-
-    const startTime = queryState.queryStartTime || Date.now();
-    const existingResults = queryState.results;
-    const existingCount = queryState.count;
-    const existingScanned = queryState.scannedCount;
-
-    updateTabQueryState(tab.id, { isFetchingMore: true, error: null, queryStartTime: startTime });
-
-    // Accumulate new items from progress events
-    let accumulatedItems: Record<string, unknown>[] = [...existingResults];
-
-    // Listen for progress updates from backend - stream items as they arrive
-    const unsubscribe = window.hotswap.onQueryProgress((progress) => {
-      if (progress.items && progress.items.length > 0) {
-        accumulatedItems = [...accumulatedItems, ...progress.items];
-      }
-      updateTabQueryState(tab.id, {
-        results: accumulatedItems,
-        count: existingCount + progress.count,
-        scannedCount: existingScanned + progress.scannedCount,
-        queryElapsedMs: Date.now() - startTime,
-        isFetchingMore: !progress.isComplete,
-      });
-    });
-
-    try {
-      // Use query if we have a PK value, otherwise scan
-      if (queryState.pkValue) {
-        const params: QueryParams = {
-          tableName: tableInfo.tableName,
-          indexName: queryState.selectedIndex || undefined,
-          keyCondition: {
-            pk: { name: pkAttr?.attributeName || '', value: queryState.pkValue },
-          },
-          filters: validFilters.length > 0 ? validFilters : undefined,
-          scanIndexForward: queryState.scanForward,
-          exclusiveStartKey: queryState.lastEvaluatedKey,
-        };
-
-        if (skAttr && queryState.skValue) {
-          params.keyCondition.sk = {
-            name: skAttr.attributeName,
-            operator: queryState.skOperator,
-            value: queryState.skValue,
-            value2: queryState.skOperator === 'between' ? queryState.skValue2 : undefined,
-          };
-        }
-
-        const result = await window.hotswap.queryTableBatch(profileName, params, queryState.maxResults);
-
-        // Final update with complete results
-        updateTabQueryState(tab.id, {
-          results: [...existingResults, ...result.items],
-          count: existingCount + result.count,
-          scannedCount: existingScanned + result.scannedCount,
-          lastEvaluatedKey: result.lastEvaluatedKey,
-          isFetchingMore: false,
-          queryElapsedMs: Date.now() - startTime,
-        });
-      } else {
-        const result = await window.hotswap.scanTableBatch(profileName, {
-          tableName: tableInfo.tableName,
-          indexName: queryState.selectedIndex || undefined,
-          filters: validFilters.length > 0 ? validFilters : undefined,
-          exclusiveStartKey: queryState.lastEvaluatedKey,
-        }, queryState.maxResults);
-
-        // Final update with complete results
-        updateTabQueryState(tab.id, {
-          results: [...existingResults, ...result.items],
-          count: existingCount + result.count,
-          scannedCount: existingScanned + result.scannedCount,
-          lastEvaluatedKey: result.lastEvaluatedKey,
-          isFetchingMore: false,
-          queryElapsedMs: Date.now() - startTime,
-        });
-      }
-    } catch (error) {
-      updateTabQueryState(tab.id, {
-        error: (error as Error).message,
         isFetchingMore: false,
         queryElapsedMs: Date.now() - startTime,
       });
@@ -691,19 +620,61 @@ function TabQueryBuilder({ tab, tableInfo }: TabQueryBuilderProps) {
               return (
                 <div key={filter.id} className="flex items-center gap-2">
                   <Filter className="h-3 w-3 text-muted-foreground shrink-0" />
-                  {/* Attribute name input */}
-                  <input
-                    type="text"
-                    value={filter.attribute}
-                    onChange={(e) => {
-                      const newFilters = [...queryState.filters];
-                      newFilters[index] = { ...filter, attribute: e.target.value };
-                      updateTabQueryState(tab.id, { filters: newFilters });
-                    }}
-                    onKeyDown={handleKeyDown}
-                    placeholder="attribute"
-                    className="w-24 h-7 px-2 rounded border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
+                  {/* Attribute selector - dropdown with discovered keys + "Other..." */}
+                  {availableAttributes.length > 0 && !availableAttributes.includes(filter.attribute) && filter.attribute !== '' ? (
+                    // Custom attribute mode - show text input
+                    <input
+                      type="text"
+                      value={filter.attribute}
+                      onChange={(e) => {
+                        const newFilters = [...queryState.filters];
+                        newFilters[index] = { ...filter, attribute: e.target.value };
+                        updateTabQueryState(tab.id, { filters: newFilters });
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder="attribute"
+                      className="w-28 h-7 px-2 rounded border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      autoFocus
+                    />
+                  ) : availableAttributes.length > 0 ? (
+                    // Dropdown mode - show discovered attributes + "Other..."
+                    <div className="relative shrink-0">
+                      <select
+                        value={filter.attribute}
+                        onChange={(e) => {
+                          const newFilters = [...queryState.filters];
+                          if (e.target.value === '__other__') {
+                            newFilters[index] = { ...filter, attribute: '' };
+                          } else {
+                            newFilters[index] = { ...filter, attribute: e.target.value };
+                          }
+                          updateTabQueryState(tab.id, { filters: newFilters });
+                        }}
+                        className="w-28 h-7 pl-2 pr-6 rounded border border-input bg-background text-xs appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="">attribute...</option>
+                        {availableAttributes.map((attr) => (
+                          <option key={attr} value={attr}>{attr}</option>
+                        ))}
+                        <option value="__other__">Other...</option>
+                      </select>
+                      <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+                    </div>
+                  ) : (
+                    // No results yet - plain text input
+                    <input
+                      type="text"
+                      value={filter.attribute}
+                      onChange={(e) => {
+                        const newFilters = [...queryState.filters];
+                        newFilters[index] = { ...filter, attribute: e.target.value };
+                        updateTabQueryState(tab.id, { filters: newFilters });
+                      }}
+                      onKeyDown={handleKeyDown}
+                      placeholder="attribute"
+                      className="w-28 h-7 px-2 rounded border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  )}
                   {/* Operator selector */}
                   <div className="relative shrink-0">
                     <select
@@ -787,7 +758,7 @@ interface TabResultsTableProps {
   onFetchMore: () => Promise<void>;
 }
 
-function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) {
+function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResultsTableProps) {
   const { updateTabQueryState } = useTabsStore();
   const queryState = tab.queryState;
   const parentRef = useRef<HTMLDivElement>(null);

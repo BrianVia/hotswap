@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { ChevronDown, Check, LogIn, Loader2, Shield, ShieldCheck, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
-import { useProfileStore, PROFILE_COLORS, type ProfileColor } from '@/stores/profile-store';
+import { useProfileStore, PROFILE_COLORS } from '@/stores/profile-store';
 import { useTableStore } from '@/stores/table-store';
 import type { AwsProfile, AuthStatus } from '@/types';
 
@@ -168,7 +168,7 @@ export function ProfileSelector() {
                       key={profile.name}
                       onClick={() => handleSelectProfile(profile)}
                       className={cn(
-                        'flex items-center justify-between rounded-sm px-3 py-2 text-sm cursor-pointer transition-colors',
+                        'group flex items-center justify-between rounded-sm px-3 py-2 text-sm cursor-pointer transition-colors',
                         isSelected
                           ? 'bg-accent text-accent-foreground'
                           : 'hover:bg-accent/50',
@@ -180,7 +180,7 @@ export function ProfileSelector() {
                         {!isSelected && <div className="w-4" />}
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="inline-flex items-center gap-1">
                             {isEditing ? (
                               <>
                                 <input
@@ -200,6 +200,7 @@ export function ProfileSelector() {
                                     return (
                                       <button
                                         key={color.value}
+                                        onMouseDown={(e) => e.preventDefault()}
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setProfileColor(profile.name, color.value);

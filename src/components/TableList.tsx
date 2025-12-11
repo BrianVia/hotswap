@@ -6,6 +6,30 @@ import { useProfileStore } from '@/stores/profile-store';
 import { useTableStore } from '@/stores/table-store';
 import { useTabsStore } from '@/stores/tabs-store';
 
+// Component to highlight matching text
+function HighlightMatch({ text, query }: { text: string; query: string }) {
+  if (!query.trim()) {
+    return <>{text}</>;
+  }
+
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-yellow-500/30 text-foreground rounded px-0.5">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
 interface ContextMenuState {
   visible: boolean;
   x: number;
@@ -221,9 +245,13 @@ export function TableList() {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium truncate">
                       {stack && (
-                        <span className="text-muted-foreground">{stack} · </span>
+                        <span className="text-muted-foreground">
+                          <HighlightMatch text={stack} query={searchQuery} /> ·
+                        </span>
                       )}
-                      <span className="truncate">{tableName}</span>
+                      <span className="truncate">
+                        <HighlightMatch text={tableName} query={searchQuery} />
+                      </span>
                     </div>
                   </div>
                 </button>
@@ -242,7 +270,7 @@ export function TableList() {
       {contextMenu.visible && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 min-w-[160px] bg-popover border rounded-md shadow-md py-1"
+          className="fixed z-50 min-w-[160px] bg-popover border rounded-md shadow-md py-1 context-menu-enter"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button

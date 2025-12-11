@@ -62,12 +62,14 @@
   "build": {
     "appId": "com.hotswap.app",
     "productName": "HotSwap",
+    "icon": "assets/app-icon-macos.png",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
-      "electron-dist/**/*"
+      "electron-dist/**/*",
+      "assets/**/*"
     ],
     "mac": {
       "category": "public.app-category.developer-tools",

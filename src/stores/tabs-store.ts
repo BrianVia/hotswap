@@ -52,6 +52,8 @@ export interface Tab {
   tableInfo: TableInfo | null;
   queryState: TabQueryState;
   profileName: string;
+  isNew?: boolean; // For entrance animation
+  isClosing?: boolean; // For exit animation
 }
 
 interface TabsState {
@@ -111,12 +113,20 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       tableInfo,
       queryState: createDefaultQueryState(),
       profileName,
+      isNew: true,
     };
 
     set({
       tabs: [...state.tabs, newTab],
       activeTabId: newTab.id,
     });
+
+    // Clear the isNew flag after animation
+    setTimeout(() => {
+      set(state => ({
+        tabs: state.tabs.map(t => t.id === newTab.id ? { ...t, isNew: false } : t),
+      }));
+    }, 200);
   },
 
   openTabInBackground: (tableName, tableInfo, profileName) => {
@@ -134,12 +144,20 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       tableInfo,
       queryState: createDefaultQueryState(),
       profileName,
+      isNew: true,
     };
 
     set({
       tabs: [...state.tabs, newTab],
       // Keep activeTabId unchanged
     });
+
+    // Clear the isNew flag after animation
+    setTimeout(() => {
+      set(state => ({
+        tabs: state.tabs.map(t => t.id === newTab.id ? { ...t, isNew: false } : t),
+      }));
+    }, 200);
   },
 
   closeTab: (tabId) => {
@@ -147,24 +165,33 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const tabIndex = state.tabs.findIndex(t => t.id === tabId);
     if (tabIndex === -1) return;
 
-    const newTabs = state.tabs.filter(t => t.id !== tabId);
+    // Mark tab as closing for exit animation
+    set(state => ({
+      tabs: state.tabs.map(t => t.id === tabId ? { ...t, isClosing: true } : t),
+    }));
 
-    let newActiveTabId = state.activeTabId;
-    if (state.activeTabId === tabId) {
-      // If closing active tab, switch to adjacent tab
-      if (newTabs.length === 0) {
-        newActiveTabId = null;
-      } else if (tabIndex >= newTabs.length) {
-        newActiveTabId = newTabs[newTabs.length - 1].id;
-      } else {
-        newActiveTabId = newTabs[tabIndex].id;
+    // Actually remove the tab after animation
+    setTimeout(() => {
+      const currentState = get();
+      const newTabs = currentState.tabs.filter(t => t.id !== tabId);
+
+      let newActiveTabId = currentState.activeTabId;
+      if (currentState.activeTabId === tabId) {
+        // If closing active tab, switch to adjacent tab
+        if (newTabs.length === 0) {
+          newActiveTabId = null;
+        } else if (tabIndex >= newTabs.length) {
+          newActiveTabId = newTabs[newTabs.length - 1].id;
+        } else {
+          newActiveTabId = newTabs[tabIndex].id;
+        }
       }
-    }
 
-    set({
-      tabs: newTabs,
-      activeTabId: newActiveTabId,
-    });
+      set({
+        tabs: newTabs,
+        activeTabId: newActiveTabId,
+      });
+    }, 150);
   },
 
   setActiveTab: (tabId) => {

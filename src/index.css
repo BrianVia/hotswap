@@ -84,3 +84,148 @@ body {
 .no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* Context menu animation */
+@keyframes context-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-enter {
+  animation: context-menu-in 0.15s ease-out;
+  transform-origin: top left;
+}
+
+/* Tab animations */
+@keyframes tab-slide-in {
+  from {
+    opacity: 0;
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  to {
+    opacity: 1;
+    max-width: 280px;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
+.tab-enter {
+  animation: tab-slide-in 0.2s ease-out forwards;
+}
+
+.tab-exit {
+  animation: tab-slide-in 0.15s ease-in reverse forwards;
+}
+
+/* Smooth height transition for expandable content */
+.expand-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s ease-out;
+}
+
+.expand-collapse.expanded {
+  grid-template-rows: 1fr;
+}
+
+.expand-collapse > div {
+  overflow: hidden;
+}
+
+/* Copy tooltip animation */
+@keyframes tooltip-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.copy-tooltip {
+  animation: tooltip-fade 1.2s ease-out forwards;
+}
+
+/* Animated counter */
+@keyframes count-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.count-animate {
+  animation: count-pulse 0.3s ease-out;
+}
+
+/* Query success flash */
+@keyframes success-flash {
+  0% {
+    background-color: transparent;
+  }
+  30% {
+    background-color: hsl(142.1 76.2% 36.3% / 0.15);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.success-flash {
+  animation: success-flash 0.6s ease-out;
+}
+
+/* Row expansion */
+@keyframes row-expand {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.row-detail-enter {
+  animation: row-expand 0.25s ease-out forwards;
+  overflow: hidden;
+}
+
+/* Skeleton loading animation */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.skeleton {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  background: linear-gradient(90deg, var(--color-muted) 0%, var(--color-muted-foreground) 50%, var(--color-muted) 100%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+}
