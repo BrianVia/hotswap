@@ -3,7 +3,11 @@
   "productName": "HotSwap",
   "version": "0.1.0",
   "description": "DynamoDB Explorer for AWS SSO profiles",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BrianVia/hotswap.git"
+  },
+  "license": "MIT",
   "type": "module",
   "main": "electron-dist/main.js",
   "scripts": {
@@ -69,8 +73,7 @@
     "publish": {
       "provider": "github",
       "owner": "BrianVia",
-      "repo": "hotswap",
-      "private": true
+      "repo": "hotswap"
     },
     "directories": {
       "output": "release"
