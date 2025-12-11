@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { ChevronDown, Check, LogIn, Loader2, Shield, ShieldCheck, Pencil } from 'lucide-react';
+import { ChevronDown, Check, LogIn, Loader2, Shield, ShieldCheck, Pencil, Star, EyeOff, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
-import { useProfileStore, PROFILE_COLORS } from '@/stores/profile-store';
+import { useProfileStore, PROFILE_COLORS, PROFILE_ENVIRONMENTS } from '@/stores/profile-store';
 import { useTableStore } from '@/stores/table-store';
 import type { AwsProfile, AuthStatus } from '@/types';
 
@@ -20,14 +20,24 @@ export function ProfileSelector() {
     setProfileDisplayName,
     getProfileColor,
     setProfileColor,
+    isProfileDisabled,
+    setProfileDisabled,
+    defaultProfileName,
+    setDefaultProfile,
+    getProfileEnvironment,
+    setProfileEnvironment,
+    getEnabledProfiles,
+    lastSelectedProfileName,
   } = useProfileStore();
 
-  const { loadTables, clearSelection } = useTableStore();
+  const { loadTables, clearSelection, getLastSelectedTable, selectTable } = useTableStore();
 
   const [isOpen, setIsOpen] = useState(false);
   const [loggingIn, setLoggingIn] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [showDisabled, setShowDisabled] = useState(false);
+  const [hasRestoredProfile, setHasRestoredProfile] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   // Load profiles on mount
@@ -41,6 +51,33 @@ export function ProfileSelector() {
       checkAuth(profile.name);
     });
   }, [profiles, checkAuth]);
+
+  // Auto-restore last selected profile on startup
+  useEffect(() => {
+    if (hasRestoredProfile || profiles.length === 0 || selectedProfile) return;
+
+    const profileToRestore = lastSelectedProfileName || defaultProfileName;
+    if (profileToRestore) {
+      const profile = profiles.find((p) => p.name === profileToRestore);
+      if (profile && !isProfileDisabled(profile.name)) {
+        // Auto-select the profile
+        selectProfile(profile);
+        // Check auth and load tables if authenticated
+        checkAuth(profile.name).then((status) => {
+          if (status.authenticated) {
+            loadTables(profile.name).then(() => {
+              // Auto-select last table if available
+              const lastTable = getLastSelectedTable(profile.name);
+              if (lastTable) {
+                selectTable(profile.name, lastTable);
+              }
+            });
+          }
+        });
+      }
+    }
+    setHasRestoredProfile(true);
+  }, [profiles, hasRestoredProfile, lastSelectedProfileName, defaultProfileName, selectedProfile, isProfileDisabled, selectProfile, checkAuth, loadTables, getLastSelectedTable, selectTable]);
 
   // Focus input when editing starts
   useEffect(() => {
@@ -144,11 +181,23 @@ export function ProfileSelector() {
           />
 
           {/* Dropdown */}
-          <div className="absolute top-full left-0 z-20 mt-1 w-96 rounded-md border bg-popover shadow-lg">
-            <div className="px-3 py-2 border-b">
+          <div className="absolute top-full left-0 z-20 mt-1 w-[420px] rounded-md border bg-popover shadow-lg">
+            <div className="px-3 py-2 border-b flex items-center justify-between">
               <div className="text-xs text-muted-foreground">
-                Click the pencil to set a friendly name for each profile
+                Click <Pencil className="h-3 w-3 inline" /> to customize name, color & environment
               </div>
+              {profiles.some((p) => isProfileDisabled(p.name)) && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDisabled(!showDisabled);
+                  }}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {showDisabled ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  {showDisabled ? 'Hide' : 'Show'} disabled
+                </button>
+              )}
             </div>
             <div className="max-h-96 overflow-y-auto p-1">
               {profiles.length === 0 ? (
@@ -156,12 +205,16 @@ export function ProfileSelector() {
                   No profiles found in ~/.aws/config
                 </div>
               ) : (
-                profiles.map((profile) => {
+                <>
+                {/* Enabled profiles */}
+                {getEnabledProfiles().map((profile) => {
                   const auth = getAuthStatus(profile.name);
                   const isSelected = selectedProfile?.name === profile.name;
                   const isLoggingIn = loggingIn === profile.name;
                   const isEditing = editingProfile === profile.name;
                   const displayName = getProfileDisplayName(profile.name);
+                  const env = getProfileEnvironment(profile.name);
+                  const isDefault = defaultProfileName === profile.name;
 
                   return (
                     <div
@@ -182,59 +235,126 @@ export function ProfileSelector() {
                         <div className="min-w-0 flex-1">
                           <div className="inline-flex items-center gap-1">
                             {isEditing ? (
-                              <>
-                                <input
-                                  ref={editInputRef}
-                                  type="text"
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onKeyDown={handleEditKeyDown}
-                                  onBlur={handleSaveEdit}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-20 h-6 px-1.5 text-xs font-semibold rounded border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                                  maxLength={12}
-                                />
+                              <div className="flex flex-col gap-1.5">
                                 <div className="flex items-center gap-1">
-                                  {PROFILE_COLORS.map((color) => {
-                                    const isActiveColor = getProfileColor(profile.name) === color.value;
-                                    return (
-                                      <button
-                                        key={color.value}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setProfileColor(profile.name, color.value);
-                                        }}
-                                        className={cn(
-                                          'w-3.5 h-3.5 rounded-full transition-all',
-                                          color.value === 'red' && 'bg-red-500',
-                                          color.value === 'orange' && 'bg-orange-500',
-                                          color.value === 'yellow' && 'bg-yellow-500',
-                                          color.value === 'green' && 'bg-green-500',
-                                          color.value === 'blue' && 'bg-blue-500',
-                                          color.value === 'purple' && 'bg-purple-500',
-                                          color.value === 'pink' && 'bg-pink-500',
-                                          color.value === 'gray' && 'bg-gray-500',
-                                          isActiveColor ? 'ring-2 ring-offset-1 ring-foreground/50' : 'opacity-50 hover:opacity-100'
-                                        )}
-                                        title={color.label}
-                                      />
-                                    );
-                                  })}
+                                  <input
+                                    ref={editInputRef}
+                                    type="text"
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onKeyDown={handleEditKeyDown}
+                                    onBlur={handleSaveEdit}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-20 h-6 px-1.5 text-xs font-semibold rounded border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                    maxLength={12}
+                                  />
+                                  <div className="flex items-center gap-0.5">
+                                    {PROFILE_COLORS.map((color) => {
+                                      const isActiveColor = getProfileColor(profile.name) === color.value;
+                                      return (
+                                        <button
+                                          key={color.value}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setProfileColor(profile.name, color.value);
+                                          }}
+                                          className={cn(
+                                            'w-3 h-3 rounded-full transition-all',
+                                            color.value === 'red' && 'bg-red-500',
+                                            color.value === 'orange' && 'bg-orange-500',
+                                            color.value === 'yellow' && 'bg-yellow-500',
+                                            color.value === 'green' && 'bg-green-500',
+                                            color.value === 'blue' && 'bg-blue-500',
+                                            color.value === 'purple' && 'bg-purple-500',
+                                            color.value === 'pink' && 'bg-pink-500',
+                                            color.value === 'gray' && 'bg-gray-500',
+                                            isActiveColor ? 'ring-2 ring-offset-1 ring-foreground/50' : 'opacity-50 hover:opacity-100'
+                                          )}
+                                          title={color.label}
+                                        />
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                              </>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-muted-foreground">Env:</span>
+                                  {PROFILE_ENVIRONMENTS.map((envOption) => (
+                                    <button
+                                      key={envOption.value}
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setProfileEnvironment(profile.name, env === envOption.value ? null : envOption.value);
+                                      }}
+                                      className={cn(
+                                        'px-1.5 py-0.5 text-[10px] rounded transition-all',
+                                        env === envOption.value
+                                          ? 'bg-foreground/10 font-semibold'
+                                          : 'opacity-50 hover:opacity-100'
+                                      )}
+                                    >
+                                      {envOption.label}
+                                    </button>
+                                  ))}
+                                  <div className="ml-auto flex items-center gap-1">
+                                    <button
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDefaultProfile(isDefault ? null : profile.name);
+                                      }}
+                                      className={cn(
+                                        'p-0.5 rounded transition-all',
+                                        isDefault ? 'text-yellow-500' : 'opacity-50 hover:opacity-100'
+                                      )}
+                                      title={isDefault ? 'Remove as default' : 'Set as default profile'}
+                                    >
+                                      <Star className={cn('h-3 w-3', isDefault && 'fill-current')} />
+                                    </button>
+                                    <button
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setProfileDisabled(profile.name, true);
+                                        handleCancelEdit();
+                                      }}
+                                      className="p-0.5 rounded opacity-50 hover:opacity-100 hover:text-red-500 transition-all"
+                                      title="Disable this profile"
+                                    >
+                                      <EyeOff className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
                             ) : (
                               <>
+                                {isDefault && (
+                                  <span title="Default profile">
+                                    <Star className="h-3 w-3 text-yellow-500 fill-current shrink-0" />
+                                  </span>
+                                )}
                                 <span className={cn(
                                   'text-xs font-semibold px-1.5 py-0.5 rounded',
                                   PROFILE_COLORS.find(c => c.value === getProfileColor(profile.name))?.classes
                                 )}>
                                   {displayName}
                                 </span>
+                                {env && (
+                                  <span className={cn(
+                                    'text-[10px] px-1 py-0.5 rounded',
+                                    env === 'prod' && 'bg-red-500/20 text-red-600 dark:text-red-400',
+                                    env === 'stage' && 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400',
+                                    env === 'test' && 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
+                                    env === 'dev' && 'bg-green-500/20 text-green-600 dark:text-green-400'
+                                  )}>
+                                    {env.toUpperCase()}
+                                  </span>
+                                )}
                                 <button
                                   onClick={(e) => handleStartEdit(e, profile.name)}
                                   className="p-0.5 rounded hover:bg-muted/80 opacity-0 group-hover:opacity-50 hover:!opacity-100 transition-opacity"
-                                  title="Edit display name & color"
+                                  title="Edit display name, color & environment"
                                 >
                                   <Pencil className="h-3 w-3" />
                                 </button>
@@ -272,7 +392,65 @@ export function ProfileSelector() {
                       </div>
                     </div>
                   );
-                })
+                })}
+
+                {/* Disabled profiles section */}
+                {showDisabled && profiles.filter((p) => isProfileDisabled(p.name)).length > 0 && (
+                  <>
+                    <div className="border-t my-2 mx-2" />
+                    <div className="px-3 py-1 text-xs text-muted-foreground">
+                      Disabled profiles
+                    </div>
+                    {profiles.filter((p) => isProfileDisabled(p.name)).map((profile) => {
+                      const displayName = getProfileDisplayName(profile.name);
+                      const env = getProfileEnvironment(profile.name);
+
+                      return (
+                        <div
+                          key={profile.name}
+                          className="group flex items-center justify-between rounded-sm px-3 py-2 text-sm opacity-50"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className="w-4" />
+                            <div className="min-w-0 flex-1">
+                              <div className="inline-flex items-center gap-1">
+                                <span className={cn(
+                                  'text-xs font-semibold px-1.5 py-0.5 rounded',
+                                  PROFILE_COLORS.find(c => c.value === getProfileColor(profile.name))?.classes
+                                )}>
+                                  {displayName}
+                                </span>
+                                {env && (
+                                  <span className={cn(
+                                    'text-[10px] px-1 py-0.5 rounded',
+                                    env === 'prod' && 'bg-red-500/20 text-red-600 dark:text-red-400',
+                                    env === 'stage' && 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400',
+                                    env === 'test' && 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
+                                    env === 'dev' && 'bg-green-500/20 text-green-600 dark:text-green-400'
+                                  )}>
+                                    {env.toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="font-medium truncate mt-1 line-through">{profile.name}</div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProfileDisabled(profile.name, false);
+                            }}
+                            className="p-1 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Enable this profile"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+                </>
               )}
             </div>
           </div>

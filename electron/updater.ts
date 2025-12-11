@@ -1,4 +1,6 @@
-import { autoUpdater, UpdateInfo } from 'electron-updater';
+import pkg from 'electron-updater';
+const { autoUpdater } = pkg;
+type UpdateInfo = pkg.UpdateInfo;
 import { BrowserWindow } from 'electron';
 import log from 'electron-log';
 

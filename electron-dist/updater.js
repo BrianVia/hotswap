@@ -1,4 +1,5 @@
-import { autoUpdater } from 'electron-updater';
+import pkg from 'electron-updater';
+const { autoUpdater } = pkg;
 import log from 'electron-log';
 // Configure logging
 autoUpdater.logger = log;

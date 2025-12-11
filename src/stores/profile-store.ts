@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { AwsProfile, AuthStatus } from '../types';
 
 export type ProfileColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'pink' | 'gray';
+export type ProfileEnvironment = 'dev' | 'test' | 'stage' | 'prod';
 
 export const PROFILE_COLORS: { value: ProfileColor; label: string; classes: string }[] = [
   { value: 'red', label: 'Red', classes: 'bg-red-500/20 text-red-600 dark:text-red-400' },
@@ -15,6 +16,13 @@ export const PROFILE_COLORS: { value: ProfileColor; label: string; classes: stri
   { value: 'gray', label: 'Gray', classes: 'bg-gray-500/20 text-gray-600 dark:text-gray-400' },
 ];
 
+export const PROFILE_ENVIRONMENTS: { value: ProfileEnvironment; label: string; color: ProfileColor }[] = [
+  { value: 'dev', label: 'DEV', color: 'green' },
+  { value: 'test', label: 'TEST', color: 'blue' },
+  { value: 'stage', label: 'STAGE', color: 'yellow' },
+  { value: 'prod', label: 'PROD', color: 'red' },
+];
+
 interface ProfileState {
   profiles: AwsProfile[];
   selectedProfile: AwsProfile | null;
@@ -25,6 +33,14 @@ interface ProfileState {
   profileDisplayNames: Record<string, string>;
   // Custom colors for profiles (persisted)
   profileColors: Record<string, ProfileColor>;
+  // Disabled profiles - hidden from selector (persisted)
+  disabledProfiles: Record<string, boolean>;
+  // Default profile to auto-select on startup (persisted)
+  defaultProfileName: string | null;
+  // Environment tags - explicit override of auto-detected env (persisted)
+  profileEnvironments: Record<string, ProfileEnvironment>;
+  // Last selected profile name for persistence (persisted)
+  lastSelectedProfileName: string | null;
 
   // Actions
   loadProfiles: () => Promise<void>;
@@ -35,6 +51,13 @@ interface ProfileState {
   getProfileDisplayName: (profileName: string) => string;
   setProfileColor: (profileName: string, color: ProfileColor) => void;
   getProfileColor: (profileName: string) => ProfileColor;
+  // New actions
+  setProfileDisabled: (profileName: string, disabled: boolean) => void;
+  isProfileDisabled: (profileName: string) => boolean;
+  setDefaultProfile: (profileName: string | null) => void;
+  setProfileEnvironment: (profileName: string, env: ProfileEnvironment | null) => void;
+  getProfileEnvironment: (profileName: string) => ProfileEnvironment | null;
+  getEnabledProfiles: () => AwsProfile[];
 }
 
 // Helper to derive a short name from profile name
@@ -68,6 +91,10 @@ export const useProfileStore = create<ProfileState>()(
       error: null,
       profileDisplayNames: {},
       profileColors: {},
+      disabledProfiles: {},
+      defaultProfileName: null,
+      profileEnvironments: {},
+      lastSelectedProfileName: null,
 
       loadProfiles: async () => {
         set({ isLoading: true, error: null });
@@ -80,7 +107,10 @@ export const useProfileStore = create<ProfileState>()(
       },
 
       selectProfile: (profile) => {
-        set({ selectedProfile: profile });
+        set({
+          selectedProfile: profile,
+          lastSelectedProfileName: profile?.name ?? null,
+        });
       },
 
       checkAuth: async (profileName) => {
@@ -129,12 +159,65 @@ export const useProfileStore = create<ProfileState>()(
         // Return custom color if set, otherwise derive from profile name
         return state.profileColors[profileName] || deriveDefaultColor(profileName);
       },
+
+      setProfileDisabled: (profileName, disabled) => {
+        set((state) => ({
+          disabledProfiles: {
+            ...state.disabledProfiles,
+            [profileName]: disabled,
+          },
+        }));
+      },
+
+      isProfileDisabled: (profileName) => {
+        return get().disabledProfiles[profileName] ?? false;
+      },
+
+      setDefaultProfile: (profileName) => {
+        set({ defaultProfileName: profileName });
+      },
+
+      setProfileEnvironment: (profileName, env) => {
+        set((state) => {
+          const newEnvs = { ...state.profileEnvironments };
+          if (env === null) {
+            delete newEnvs[profileName];
+          } else {
+            newEnvs[profileName] = env;
+          }
+          return { profileEnvironments: newEnvs };
+        });
+      },
+
+      getProfileEnvironment: (profileName) => {
+        const state = get();
+        // Return explicit env if set, otherwise auto-detect from profile name
+        if (state.profileEnvironments[profileName]) {
+          return state.profileEnvironments[profileName];
+        }
+        // Auto-detect from profile name
+        const name = profileName.toUpperCase();
+        if (name.includes('PROD')) return 'prod';
+        if (name.includes('STAGING') || name.includes('STAGE') || name.includes('STG')) return 'stage';
+        if (name.includes('TEST') || name.includes('QA') || name.includes('UAT')) return 'test';
+        if (name.includes('DEV') || name.includes('LOCAL') || name.includes('DEVELOPMENT')) return 'dev';
+        return null;
+      },
+
+      getEnabledProfiles: () => {
+        const state = get();
+        return state.profiles.filter((p) => !state.disabledProfiles[p.name]);
+      },
     }),
     {
       name: 'hotswap-profiles',
       partialize: (state) => ({
         profileDisplayNames: state.profileDisplayNames,
         profileColors: state.profileColors,
+        disabledProfiles: state.disabledProfiles,
+        defaultProfileName: state.defaultProfileName,
+        profileEnvironments: state.profileEnvironments,
+        lastSelectedProfileName: state.lastSelectedProfileName,
       }),
     }
   )

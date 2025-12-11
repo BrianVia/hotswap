@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, memo, useCallback } from 'react';
 import { AlertCircle, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/button';
 import { usePendingChangesStore } from '@/stores/pending-changes-store';
@@ -72,7 +72,7 @@ interface FieldEditorProps {
   isModified: boolean;
 }
 
-function FieldEditor({ fieldName, value, originalValue, onChange, isPkOrSk, isModified }: FieldEditorProps) {
+const FieldEditor = memo(function FieldEditor({ fieldName, value, originalValue, onChange, isPkOrSk, isModified }: FieldEditorProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const stringValue = formatValue(value);
   const isObject = typeof originalValue === 'object' && originalValue !== null;
@@ -134,7 +134,7 @@ function FieldEditor({ fieldName, value, originalValue, onChange, isPkOrSk, isMo
       )}
     </div>
   );
-}
+});
 
 export function EditRowDialog({
   isOpen,
@@ -193,9 +193,9 @@ export function EditRowDialog({
     return Array.from(modifiedFields).some(field => pkSkAttrs.has(field));
   }, [modifiedFields, pkSkAttrs]);
 
-  const handleFieldChange = (field: string, value: string) => {
+  const handleFieldChange = useCallback((field: string, value: string) => {
     setEditedValues(prev => ({ ...prev, [field]: value }));
-  };
+  }, []);
 
   const handleSave = () => {
     if (modifiedFields.size === 0) {
