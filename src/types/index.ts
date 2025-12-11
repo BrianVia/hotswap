@@ -105,6 +105,22 @@ export interface QueryProgress {
   isComplete?: boolean;              // Signals pagination complete
 }
 
+// Write operation types
+export interface BatchWriteOperation {
+  type: 'put' | 'delete' | 'pk-change';
+  tableName: string;
+  key?: Record<string, unknown>;
+  item?: Record<string, unknown>;
+  // For pk-change: oldKey + newItem
+  oldKey?: Record<string, unknown>;
+  newItem?: Record<string, unknown>;
+}
+
+export interface WriteProgress {
+  processed: number;
+  total: number;
+}
+
 export interface ScanParams {
   tableName: string;
   indexName?: string;
@@ -127,6 +143,13 @@ declare global {
       queryTableBatch: (profileName: string, params: QueryParams, maxResults: number) => Promise<BatchQueryResult>;
       scanTableBatch: (profileName: string, params: ScanParams, maxResults: number) => Promise<BatchQueryResult>;
       onQueryProgress: (callback: (progress: QueryProgress) => void) => () => void;
+      // Write operations
+      putItem: (profileName: string, tableName: string, item: Record<string, unknown>) => Promise<{ success: boolean }>;
+      updateItem: (profileName: string, tableName: string, key: Record<string, unknown>, updates: Record<string, unknown>) => Promise<{ success: boolean }>;
+      deleteItem: (profileName: string, tableName: string, key: Record<string, unknown>) => Promise<{ success: boolean }>;
+      batchWrite: (profileName: string, operations: BatchWriteOperation[]) => Promise<{ success: boolean; processed: number; errors: string[] }>;
+      onWriteProgress: (callback: (progress: WriteProgress) => void) => () => void;
+      // System
       getSystemTheme: () => Promise<'light' | 'dark'>;
       onThemeChange: (callback: (theme: 'light' | 'dark') => void) => () => void;
     };

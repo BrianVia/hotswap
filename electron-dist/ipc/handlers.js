@@ -1,6 +1,6 @@
 import { ipcMain, nativeTheme, BrowserWindow } from 'electron';
 import { ListTablesCommand, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
-import { QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, ScanCommand, PutCommand, UpdateCommand, DeleteCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { parseAwsConfig } from '../services/config-parser.js';
 import { checkAuthStatus, loginWithSSO } from '../services/credential-manager.js';
 import { getDynamoDBClient, getDynamoDBDocClient, clearClientsForProfile } from '../services/dynamo-client-factory.js';
@@ -269,6 +269,153 @@ export function registerIpcHandlers() {
         }
         catch (error) {
             console.error('Batch scan failed:', error);
+            throw error;
+        }
+    });
+    // ============ DynamoDB Write Operations ============
+    ipcMain.handle('dynamo:put-item', async (_event, profileName, tableName, item) => {
+        try {
+            const docClient = await getDynamoDBDocClient(profileName);
+            await docClient.send(new PutCommand({ TableName: tableName, Item: item }));
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Put item failed:', error);
+            throw error;
+        }
+    });
+    ipcMain.handle('dynamo:update-item', async (_event, profileName, tableName, key, updates) => {
+        try {
+            const docClient = await getDynamoDBDocClient(profileName);
+            // Build UpdateExpression from updates object
+            const expressionAttributeNames = {};
+            const expressionAttributeValues = {};
+            const updateParts = [];
+            Object.entries(updates).forEach(([field, value], index) => {
+                const nameKey = `#field${index}`;
+                const valueKey = `:val${index}`;
+                expressionAttributeNames[nameKey] = field;
+                expressionAttributeValues[valueKey] = value;
+                updateParts.push(`${nameKey} = ${valueKey}`);
+            });
+            const updateExpression = `SET ${updateParts.join(', ')}`;
+            await docClient.send(new UpdateCommand({
+                TableName: tableName,
+                Key: key,
+                UpdateExpression: updateExpression,
+                ExpressionAttributeNames: expressionAttributeNames,
+                ExpressionAttributeValues: expressionAttributeValues,
+            }));
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Update item failed:', error);
+            throw error;
+        }
+    });
+    ipcMain.handle('dynamo:delete-item', async (_event, profileName, tableName, key) => {
+        try {
+            const docClient = await getDynamoDBDocClient(profileName);
+            await docClient.send(new DeleteCommand({ TableName: tableName, Key: key }));
+            return { success: true };
+        }
+        catch (error) {
+            console.error('Delete item failed:', error);
+            throw error;
+        }
+    });
+    ipcMain.handle('dynamo:batch-write', async (event, profileName, operations) => {
+        try {
+            const docClient = await getDynamoDBDocClient(profileName);
+            const errors = [];
+            let processed = 0;
+            // Process PK changes as transactions (delete old + put new atomically)
+            const pkChanges = operations.filter(op => op.type === 'pk-change');
+            for (const op of pkChanges) {
+                if (!op.oldKey || !op.newItem)
+                    continue;
+                try {
+                    await docClient.send(new TransactWriteCommand({
+                        TransactItems: [
+                            {
+                                Delete: {
+                                    TableName: op.tableName,
+                                    Key: op.oldKey,
+                                },
+                            },
+                            {
+                                Put: {
+                                    TableName: op.tableName,
+                                    Item: op.newItem,
+                                },
+                            },
+                        ],
+                    }));
+                    processed++;
+                }
+                catch (err) {
+                    errors.push(`PK change failed: ${err.message}`);
+                }
+            }
+            // Process regular puts and deletes in batches of 25
+            const regularOps = operations.filter(op => op.type !== 'pk-change');
+            const BATCH_SIZE = 25;
+            for (let i = 0; i < regularOps.length; i += BATCH_SIZE) {
+                const batch = regularOps.slice(i, i + BATCH_SIZE);
+                // Group by table
+                const requestsByTable = {};
+                for (const op of batch) {
+                    if (!requestsByTable[op.tableName]) {
+                        requestsByTable[op.tableName] = [];
+                    }
+                    if (op.type === 'put' && op.item) {
+                        requestsByTable[op.tableName].push({
+                            PutRequest: { Item: op.item },
+                        });
+                    }
+                    else if (op.type === 'delete' && op.key) {
+                        requestsByTable[op.tableName].push({
+                            DeleteRequest: { Key: op.key },
+                        });
+                    }
+                }
+                // Execute batch write for each table
+                for (const [tableName, requests] of Object.entries(requestsByTable)) {
+                    if (requests.length === 0)
+                        continue;
+                    try {
+                        // Use BatchWriteItem via individual operations since lib-dynamodb doesn't have BatchWriteCommand
+                        // We'll do individual operations for simplicity
+                        for (const req of requests) {
+                            if (req.PutRequest) {
+                                await docClient.send(new PutCommand({
+                                    TableName: tableName,
+                                    Item: req.PutRequest.Item,
+                                }));
+                            }
+                            else if (req.DeleteRequest) {
+                                await docClient.send(new DeleteCommand({
+                                    TableName: tableName,
+                                    Key: req.DeleteRequest.Key,
+                                }));
+                            }
+                            processed++;
+                        }
+                    }
+                    catch (err) {
+                        errors.push(`Batch operation failed for ${tableName}: ${err.message}`);
+                    }
+                }
+                // Send progress
+                event.sender.send('write-progress', {
+                    processed,
+                    total: operations.length,
+                });
+            }
+            return { success: errors.length === 0, processed, errors };
+        }
+        catch (error) {
+            console.error('Batch write failed:', error);
             throw error;
         }
     });

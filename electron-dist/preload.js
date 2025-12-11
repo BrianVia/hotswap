@@ -18,6 +18,16 @@ const api = {
         ipcRenderer.on('query-progress', handler);
         return () => ipcRenderer.removeListener('query-progress', handler);
     },
+    // Write operations
+    putItem: (profileName, tableName, item) => ipcRenderer.invoke('dynamo:put-item', profileName, tableName, item),
+    updateItem: (profileName, tableName, key, updates) => ipcRenderer.invoke('dynamo:update-item', profileName, tableName, key, updates),
+    deleteItem: (profileName, tableName, key) => ipcRenderer.invoke('dynamo:delete-item', profileName, tableName, key),
+    batchWrite: (profileName, operations) => ipcRenderer.invoke('dynamo:batch-write', profileName, operations),
+    onWriteProgress: (callback) => {
+        const handler = (_event, progress) => callback(progress);
+        ipcRenderer.on('write-progress', handler);
+        return () => ipcRenderer.removeListener('write-progress', handler);
+    },
     // System
     getSystemTheme: () => ipcRenderer.invoke('system:get-theme'),
     onThemeChange: (callback) => {

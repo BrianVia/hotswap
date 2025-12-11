@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { AwsProfile, TableInfo, AuthStatus, QueryParams, QueryResult, BatchQueryResult, QueryProgress } from './types.js';
+import type { AwsProfile, TableInfo, AuthStatus, QueryParams, QueryResult, BatchQueryResult, QueryProgress, BatchWriteOperation, WriteProgress } from './types.js';
 import type { ScanParams } from './services/query-executor.js';
 
 // Type declaration for the renderer
@@ -45,6 +45,33 @@ const api = {
     const handler = (_event: Electron.IpcRendererEvent, progress: QueryProgress) => callback(progress);
     ipcRenderer.on('query-progress', handler);
     return () => ipcRenderer.removeListener('query-progress', handler);
+  },
+
+  // Write operations
+  putItem: (profileName: string, tableName: string, item: Record<string, unknown>): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('dynamo:put-item', profileName, tableName, item),
+
+  updateItem: (
+    profileName: string,
+    tableName: string,
+    key: Record<string, unknown>,
+    updates: Record<string, unknown>
+  ): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('dynamo:update-item', profileName, tableName, key, updates),
+
+  deleteItem: (profileName: string, tableName: string, key: Record<string, unknown>): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('dynamo:delete-item', profileName, tableName, key),
+
+  batchWrite: (
+    profileName: string,
+    operations: BatchWriteOperation[]
+  ): Promise<{ success: boolean; processed: number; errors: string[] }> =>
+    ipcRenderer.invoke('dynamo:batch-write', profileName, operations),
+
+  onWriteProgress: (callback: (progress: WriteProgress) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: WriteProgress) => callback(progress);
+    ipcRenderer.on('write-progress', handler);
+    return () => ipcRenderer.removeListener('write-progress', handler);
   },
 
   // System

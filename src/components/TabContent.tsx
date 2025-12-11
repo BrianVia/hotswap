@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   useReactTable,
@@ -27,12 +27,20 @@ import {
   Plus,
   Filter,
   FastForward,
+  AlertCircle,
+  Trash2,
+  Pencil,
+  Save,
+  RotateCcw,
 } from 'lucide-react';
 import { Button } from './ui/button';
+import { EditRowDialog } from './dialogs/EditRowDialog';
+import { BulkEditDialog } from './dialogs/BulkEditDialog';
 import { useTabsStore, type Tab } from '@/stores/tabs-store';
 import { useProfileStore } from '@/stores/profile-store';
+import { usePendingChangesStore, type PendingChange } from '@/stores/pending-changes-store';
 import { cn } from '@/lib/utils';
-import type { TableInfo, SkOperator, QueryParams, FilterOperator, FilterCondition } from '@/types';
+import type { TableInfo, SkOperator, QueryParams, FilterOperator, FilterCondition, BatchWriteOperation } from '@/types';
 
 const SK_OPERATORS: { value: SkOperator; label: string }[] = [
   { value: 'eq', label: '=' },
@@ -83,7 +91,203 @@ function formatCellValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function CellRenderer({ value }: { value: unknown }) {
+function parseEditValue(value: string, originalType: unknown): unknown {
+  // Try to preserve the original type
+  if (value === 'null') return null;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+
+  // If original was a number, try to parse as number
+  if (typeof originalType === 'number') {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+
+  // Try to parse as JSON for objects/arrays
+  if (value.startsWith('{') || value.startsWith('[')) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+
+  return value;
+}
+
+function extractPrimaryKey(
+  row: Record<string, unknown>,
+  tableInfo: TableInfo
+): Record<string, unknown> {
+  const pk: Record<string, unknown> = {};
+  const hashKey = tableInfo.keySchema.find((k) => k.keyType === 'HASH');
+  const rangeKey = tableInfo.keySchema.find((k) => k.keyType === 'RANGE');
+
+  if (hashKey) {
+    pk[hashKey.attributeName] = row[hashKey.attributeName];
+  }
+  if (rangeKey) {
+    pk[rangeKey.attributeName] = row[rangeKey.attributeName];
+  }
+  return pk;
+}
+
+interface EditableCellRendererProps {
+  value: unknown;
+  columnId: string;
+  rowIndex: number;
+  tabId: string;
+  tableInfo: TableInfo;
+  row: Record<string, unknown>;
+  isPkOrSk: boolean;
+  pendingChange?: PendingChange;
+  isRowDeleted: boolean;
+  onAddChange: (tabId: string, change: Omit<PendingChange, 'id'>) => void;
+}
+
+const EditableCellRenderer = memo(function EditableCellRenderer({
+  value,
+  columnId,
+  rowIndex,
+  tabId,
+  tableInfo,
+  row,
+  isPkOrSk,
+  pendingChange,
+  isRowDeleted,
+  onAddChange,
+}: EditableCellRendererProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [showPkWarning, setShowPkWarning] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Determine displayed value (pending change or original)
+  const displayValue = pendingChange?.newValue !== undefined ? pendingChange.newValue : value;
+
+  const handleStartEdit = () => {
+    if (isRowDeleted) return;
+    setEditValue(formatCellValue(displayValue));
+    setIsEditing(true);
+  };
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleConfirmEdit = () => {
+    const newValue = parseEditValue(editValue, value);
+    const originalValue = value;
+
+    // Only add change if value actually changed
+    if (JSON.stringify(newValue) !== JSON.stringify(displayValue)) {
+      if (isPkOrSk) {
+        setShowPkWarning(true);
+        return;
+      }
+      onAddChange(tabId, {
+        tabId,
+        rowIndex,
+        primaryKey: extractPrimaryKey(row, tableInfo),
+        type: 'update',
+        field: columnId,
+        originalValue,
+        newValue,
+      });
+    }
+    setIsEditing(false);
+  };
+
+  const handleConfirmPkChange = () => {
+    const newValue = parseEditValue(editValue, value);
+    const newItem = { ...row, [columnId]: newValue };
+    onAddChange(tabId, {
+      tabId,
+      rowIndex,
+      primaryKey: extractPrimaryKey(row, tableInfo),
+      type: 'pk-change',
+      originalItem: row,
+      newItem,
+    });
+    setShowPkWarning(false);
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setShowPkWarning(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleConfirmEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    } else if (e.key === 'Tab') {
+      handleConfirmEdit();
+    }
+  };
+
+  // PK/SK warning dialog
+  if (showPkWarning) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-popover border rounded-lg shadow-lg p-4 max-w-md">
+          <div className="flex items-center gap-2 text-amber-500 mb-3">
+            <AlertCircle className="h-5 w-5" />
+            <span className="font-semibold">Primary Key Change</span>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Changing the partition key or sort key will DELETE this item and CREATE a new one.
+            This cannot be undone after applying.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleConfirmPkChange}>
+              Continue
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isEditing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={handleConfirmEdit}
+        className="w-full h-6 px-1 text-sm rounded border border-ring bg-background focus:outline-none"
+      />
+    );
+  }
+
+  return (
+    <div
+      onDoubleClick={handleStartEdit}
+      className={cn(
+        'cursor-pointer min-h-[20px]',
+        pendingChange && 'bg-amber-500/20 rounded px-1',
+        isRowDeleted && 'line-through opacity-50'
+      )}
+      title="Double-click to edit"
+    >
+      <CellRendererInner value={displayValue} />
+    </div>
+  );
+});
+
+const CellRendererInner = memo(function CellRendererInner({ value }: { value: unknown }) {
   const [expanded, setExpanded] = useState(false);
 
   if (value === null) {
@@ -122,7 +326,10 @@ function CellRenderer({ value }: { value: unknown }) {
       <div className="font-mono text-xs">
         {isLong ? (
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
             className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
           >
             {expanded ? (
@@ -157,7 +364,7 @@ function CellRenderer({ value }: { value: unknown }) {
   }
 
   return <span>{strValue}</span>;
-}
+});
 
 interface TabQueryBuilderProps {
   tab: Tab;
@@ -758,14 +965,110 @@ interface TabResultsTableProps {
   onFetchMore: () => Promise<void>;
 }
 
-function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResultsTableProps) {
+interface ContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  rowIndex: number | null;
+}
+
+function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) {
   const { updateTabQueryState } = useTabsStore();
+  const { selectedProfile } = useProfileStore();
+  const {
+    getChangesForTab,
+    addChange,
+    clearChangesForTab,
+    hasChanges,
+    changeCount,
+  } = usePendingChangesStore();
   const queryState = tab.queryState;
   const parentRef = useRef<HTMLDivElement>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [lastSelectedRow, setLastSelectedRow] = useState<number | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    visible: false,
+    x: 0,
+    y: 0,
+    rowIndex: null,
+  });
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editingRow, setEditingRow] = useState<number | null>(null);
+  const [bulkEditField, setBulkEditField] = useState<string | null>(null);
+
+  // Get PK and SK attribute names
+  const hashKeyAttr = tableInfo.keySchema.find((k) => k.keyType === 'HASH')?.attributeName;
+  const rangeKeyAttr = tableInfo.keySchema.find((k) => k.keyType === 'RANGE')?.attributeName;
+  const pkSkAttrs = useMemo(() => new Set([hashKeyAttr, rangeKeyAttr].filter(Boolean)), [hashKeyAttr, rangeKeyAttr]);
+
+  const pendingChanges = getChangesForTab(tab.id);
+  const hasPendingChanges = hasChanges(tab.id);
+  const pendingCount = changeCount(tab.id);
+
+  // Stable callback for adding changes (prevents re-renders)
+  const handleAddChange = useCallback((tabId: string, change: Omit<PendingChange, 'id'>) => {
+    addChange(tabId, change);
+  }, [addChange]);
+
+  // Build fast lookup maps for pending changes (computed once per change set)
+  const { cellChangesMap, deletedRowsSet } = useMemo(() => {
+    const cellMap = new Map<string, PendingChange>(); // key: "rowIndex:field"
+    const deletedSet = new Set<number>();
+
+    pendingChanges.forEach((change) => {
+      if (change.type === 'update' && change.field) {
+        cellMap.set(`${change.rowIndex}:${change.field}`, change);
+      } else if (change.type === 'delete') {
+        deletedSet.add(change.rowIndex);
+      }
+    });
+
+    return { cellChangesMap: cellMap, deletedRowsSet: deletedSet };
+  }, [pendingChanges]);
+
+  // Keyboard shortcut for Cmd+S / Ctrl+S
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        if (hasPendingChanges) {
+          setShowConfirmDialog(true);
+        }
+      }
+      // Escape to clear selection
+      if (e.key === 'Escape') {
+        setSelectedRows(new Set());
+      }
+      // Cmd+A / Ctrl+A to select all
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && document.activeElement?.tagName !== 'INPUT') {
+        e.preventDefault();
+        setSelectedRows(new Set(queryState.results.map((_, i) => i)));
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [hasPendingChanges, queryState.results.length]);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+      }
+    };
+
+    if (contextMenu.visible) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [contextMenu.visible]);
 
   const columns = useMemo<ColumnDef<Record<string, unknown>>[]>(() => {
     if (queryState.results.length === 0) return [];
@@ -795,6 +1098,11 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
             className="flex items-center gap-1 hover:text-foreground text-xs"
           >
             {key}
+            {pkSkAttrs.has(key) && (
+              <span className="text-[10px] text-blue-500 font-normal">
+                {key === hashKeyAttr ? 'PK' : 'SK'}
+              </span>
+            )}
             {column.getIsSorted() === 'asc' ? (
               <ArrowUp className="h-3 w-3" />
             ) : column.getIsSorted() === 'desc' ? (
@@ -805,7 +1113,29 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
           </button>
         </div>
       ),
-      cell: ({ getValue }) => <CellRenderer value={getValue()} />,
+      cell: ({ getValue, row }) => {
+        const rowIndex = row.index;
+        const rowData = queryState.results[rowIndex];
+        // Use fast map lookups instead of store function calls
+        const pendingChange = cellChangesMap.get(`${rowIndex}:${key}`);
+        const rowDeleted = deletedRowsSet.has(rowIndex);
+        const isPkOrSk = pkSkAttrs.has(key);
+
+        return (
+          <EditableCellRenderer
+            value={getValue()}
+            columnId={key}
+            rowIndex={rowIndex}
+            tabId={tab.id}
+            tableInfo={tableInfo}
+            row={rowData}
+            isPkOrSk={isPkOrSk}
+            pendingChange={pendingChange}
+            isRowDeleted={rowDeleted}
+            onAddChange={handleAddChange}
+          />
+        );
+      },
       sortingFn: (rowA, rowB, columnId) => {
         const a = rowA.getValue(columnId);
         const b = rowB.getValue(columnId);
@@ -814,13 +1144,14 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
         return aStr.localeCompare(bStr, undefined, { numeric: true });
       },
     }));
-  }, [queryState.results]);
+  }, [queryState.results, tab.id, tableInfo, pkSkAttrs, hashKeyAttr, cellChangesMap, deletedRowsSet, handleAddChange]);
 
-  useMemo(() => {
+  // Initialize column order when columns change
+  useEffect(() => {
     if (columns.length > 0 && columnOrder.length === 0) {
       setColumnOrder(columns.map(c => c.id as string));
     }
-  }, [columns]);
+  }, [columns.length]);
 
   const table = useReactTable({
     data: queryState.results,
@@ -834,12 +1165,11 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
 
   const rows = table.getRowModel().rows;
 
-  // Virtual scrolling - only render visible rows
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 32, // Estimated row height in px
-    overscan: 10, // Render 10 extra rows above/below viewport
+    estimateSize: () => 32,
+    overscan: 10,
   });
 
   const handleDragStart = useCallback((e: React.DragEvent, columnId: string) => {
@@ -872,6 +1202,127 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
     setDraggedColumn(null);
   }, []);
 
+  const handleRowClick = useCallback((e: React.MouseEvent, rowIndex: number) => {
+    if (e.metaKey || e.ctrlKey) {
+      // Toggle selection
+      setSelectedRows(prev => {
+        const next = new Set(prev);
+        if (next.has(rowIndex)) {
+          next.delete(rowIndex);
+        } else {
+          next.add(rowIndex);
+        }
+        return next;
+      });
+    } else if (e.shiftKey && lastSelectedRow !== null) {
+      // Range select
+      const start = Math.min(lastSelectedRow, rowIndex);
+      const end = Math.max(lastSelectedRow, rowIndex);
+      const range = new Set<number>();
+      for (let i = start; i <= end; i++) {
+        range.add(i);
+      }
+      setSelectedRows(range);
+    } else {
+      // Single select
+      setSelectedRows(new Set([rowIndex]));
+    }
+    setLastSelectedRow(rowIndex);
+  }, [lastSelectedRow]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, rowIndex: number) => {
+    e.preventDefault();
+    // If right-clicking on an unselected row, select it
+    if (!selectedRows.has(rowIndex)) {
+      setSelectedRows(new Set([rowIndex]));
+    }
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      rowIndex,
+    });
+  }, [selectedRows]);
+
+  const handleDeleteRow = useCallback(() => {
+    const rowsToDelete = selectedRows.size > 0 ? Array.from(selectedRows) : contextMenu.rowIndex !== null ? [contextMenu.rowIndex] : [];
+
+    rowsToDelete.forEach(rowIndex => {
+      const rowData = queryState.results[rowIndex];
+      if (rowData) {
+        addChange(tab.id, {
+          tabId: tab.id,
+          rowIndex,
+          primaryKey: extractPrimaryKey(rowData, tableInfo),
+          type: 'delete',
+        });
+      }
+    });
+
+    setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+    setSelectedRows(new Set());
+  }, [selectedRows, contextMenu.rowIndex, queryState.results, tab.id, tableInfo, addChange]);
+
+  const handleDiscardChanges = useCallback(() => {
+    clearChangesForTab(tab.id);
+  }, [tab.id, clearChangesForTab]);
+
+  const handleApplyChanges = useCallback(async () => {
+    if (!selectedProfile) return;
+
+    setIsSaving(true);
+    try {
+      const changes = getChangesForTab(tab.id);
+      const operations: BatchWriteOperation[] = [];
+
+      for (const change of changes) {
+        if (change.type === 'delete') {
+          operations.push({
+            type: 'delete',
+            tableName: tableInfo.tableName,
+            key: change.primaryKey,
+          });
+        } else if (change.type === 'pk-change' && change.originalItem && change.newItem) {
+          operations.push({
+            type: 'pk-change',
+            tableName: tableInfo.tableName,
+            oldKey: extractPrimaryKey(change.originalItem, tableInfo),
+            newItem: change.newItem,
+          });
+        } else if (change.type === 'update' && change.field) {
+          // For updates, we need to send just the field update
+          await window.hotswap.updateItem(
+            selectedProfile.name,
+            tableInfo.tableName,
+            change.primaryKey,
+            { [change.field]: change.newValue }
+          );
+        }
+      }
+
+      // Execute batch operations (deletes and pk-changes)
+      if (operations.length > 0) {
+        await window.hotswap.batchWrite(selectedProfile.name, operations);
+      }
+
+      // Clear pending changes and refresh
+      clearChangesForTab(tab.id);
+      setShowConfirmDialog(false);
+
+      // Re-scan to get updated data
+      updateTabQueryState(tab.id, {
+        results: [],
+        lastEvaluatedKey: undefined,
+        count: 0,
+        scannedCount: 0,
+      });
+    } catch (error) {
+      console.error('Failed to apply changes:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [selectedProfile, tab.id, tableInfo, getChangesForTab, clearChangesForTab, updateTabQueryState]);
+
   const handleClearResults = () => {
     updateTabQueryState(tab.id, {
       results: [],
@@ -880,7 +1331,16 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
       scannedCount: 0,
       error: null,
     });
+    clearChangesForTab(tab.id);
   };
+
+  // Summary of changes for confirm dialog (must be before early return to maintain hook order)
+  const changeSummary = useMemo(() => {
+    const updates = pendingChanges.filter(c => c.type === 'update').length;
+    const deletes = pendingChanges.filter(c => c.type === 'delete').length;
+    const pkChanges = pendingChanges.filter(c => c.type === 'pk-change').length;
+    return { updates, deletes, pkChanges };
+  }, [pendingChanges]);
 
   if (queryState.results.length === 0 && !queryState.isLoading && !queryState.error) {
     return null;
@@ -888,6 +1348,38 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
 
   return (
     <div className="border rounded-lg bg-card flex flex-col">
+      {/* Pending Changes Bar */}
+      {hasPendingChanges && (
+        <div className="flex items-center justify-between px-3 py-2 bg-amber-500/10 border-b border-amber-500/30">
+          <div className="flex items-center gap-2 text-sm">
+            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="font-medium text-amber-600 dark:text-amber-400">
+              {pendingCount} pending change{pendingCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDiscardChanges}
+              className="h-7 text-xs"
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              Discard
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowConfirmDialog(true)}
+              className="h-7 text-xs"
+            >
+              <Save className="h-3 w-3 mr-1" />
+              Save
+              <span className="ml-1 text-[10px] opacity-70">⌘S</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {queryState.error && (
         <div className="px-3 py-2 text-xs text-red-500">
           {queryState.error}
@@ -898,7 +1390,7 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
         <div
           ref={parentRef}
           className="overflow-auto flex-1"
-          style={{ maxHeight: 'calc(100vh - 280px)' }}
+          style={{ maxHeight: hasPendingChanges ? 'calc(100vh - 320px)' : 'calc(100vh - 280px)' }}
         >
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm">
@@ -932,7 +1424,6 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
               ))}
             </thead>
             <tbody>
-              {/* Top spacer for virtual items above viewport */}
               {rowVirtualizer.getVirtualItems().length > 0 && (
                 <tr>
                   <td
@@ -943,13 +1434,24 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
               )}
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const row = rows[virtualRow.index];
+                const originalIndex = row.index;
+                const isSelected = selectedRows.has(originalIndex);
+                const rowDeleted = deletedRowsSet.has(originalIndex);
+
                 return (
                   <tr
                     key={row.id}
                     data-index={virtualRow.index}
+                    onClick={(e) => handleRowClick(e, originalIndex)}
+                    onContextMenu={(e) => handleContextMenu(e, originalIndex)}
                     className={cn(
-                      'border-b last:border-0 hover:bg-muted/40 transition-colors',
-                      virtualRow.index % 2 === 0 ? 'bg-background' : 'bg-muted/50'
+                      'border-b last:border-0 transition-colors cursor-pointer',
+                      isSelected
+                        ? 'bg-blue-500/20'
+                        : virtualRow.index % 2 === 0
+                        ? 'bg-background hover:bg-muted/40'
+                        : 'bg-muted/50 hover:bg-muted/60',
+                      rowDeleted && 'bg-red-500/20 opacity-60'
                     )}
                     style={{ height: `${virtualRow.size}px` }}
                   >
@@ -964,7 +1466,6 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
                   </tr>
                 );
               })}
-              {/* Bottom spacer for virtual items below viewport */}
               {rowVirtualizer.getVirtualItems().length > 0 && (
                 <tr>
                   <td
@@ -985,6 +1486,9 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
         <div className="flex items-center gap-1.5 text-xs">
           <span className="font-medium">{queryState.results.length.toLocaleString()}</span>
           <span className="text-muted-foreground">items</span>
+          {selectedRows.size > 0 && (
+            <span className="text-blue-500">({selectedRows.size} selected)</span>
+          )}
           {queryState.scannedCount > queryState.count && (
             <span className="text-muted-foreground/60">({queryState.scannedCount.toLocaleString()} scanned)</span>
           )}
@@ -998,7 +1502,6 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
                 : `${queryState.queryElapsedMs}ms`}
             </span>
           )}
-          {/* Fast-forward button to fetch more */}
           {queryState.lastEvaluatedKey && !queryState.isLoading && !queryState.isFetchingMore && (
             <button
               onClick={onFetchMore}
@@ -1010,7 +1513,6 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
           )}
         </div>
         <div className="flex items-center gap-2">
-          {/* Max Results input */}
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground">Max</span>
             <input
@@ -1027,6 +1529,138 @@ function TabResultsTable({ tab, tableInfo: _tableInfo, onFetchMore }: TabResults
           </Button>
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu.visible && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 min-w-[180px] bg-popover border rounded-md shadow-lg py-1"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          {selectedRows.size <= 1 && contextMenu.rowIndex !== null && (
+            <button
+              onClick={() => {
+                setEditingRow(contextMenu.rowIndex);
+                setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+              }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit Row...
+            </button>
+          )}
+          {selectedRows.size > 1 && (
+            <div className="px-3 py-1.5">
+              <div className="text-xs text-muted-foreground mb-1">
+                Set field for {selectedRows.size} rows:
+              </div>
+              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                {columns.slice(0, 20).map((col) => (
+                  <button
+                    key={col.id}
+                    onClick={() => {
+                      setBulkEditField(col.id as string);
+                      setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+                    }}
+                    className="px-2 py-0.5 text-xs rounded bg-muted hover:bg-accent transition-colors"
+                  >
+                    {col.id}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {selectedRows.size > 1 && <div className="border-t my-1" />}
+          <button
+            onClick={handleDeleteRow}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors text-red-500"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete {selectedRows.size > 1 ? `${selectedRows.size} rows` : 'row'}
+          </button>
+        </div>
+      )}
+
+      {/* Confirm Changes Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-popover border rounded-lg shadow-lg p-4 max-w-md w-full mx-4">
+            <h3 className="font-semibold text-lg mb-3">Apply {pendingCount} Changes?</h3>
+            <div className="space-y-1 text-sm text-muted-foreground mb-4">
+              {changeSummary.updates > 0 && (
+                <div className="flex items-center gap-2">
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span>Update {changeSummary.updates} field{changeSummary.updates !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+              {changeSummary.deletes > 0 && (
+                <div className="flex items-center gap-2 text-red-500">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete {changeSummary.deletes} row{changeSummary.deletes !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+              {changeSummary.pkChanges > 0 && (
+                <div className="flex items-center gap-2 text-purple-500">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <span>{changeSummary.pkChanges} key change{changeSummary.pkChanges !== 1 ? 's' : ''} (delete + create)</span>
+                </div>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground mb-4 p-2 bg-muted rounded">
+              This will modify data in DynamoDB. This action cannot be undone.
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowConfirmDialog(false)}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleApplyChanges}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    Applying...
+                  </>
+                ) : (
+                  'Apply Changes'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Row Dialog */}
+      {editingRow !== null && queryState.results[editingRow] && (
+        <EditRowDialog
+          isOpen={editingRow !== null}
+          onClose={() => setEditingRow(null)}
+          row={queryState.results[editingRow]}
+          rowIndex={editingRow}
+          tabId={tab.id}
+          tableInfo={tableInfo}
+        />
+      )}
+
+      {/* Bulk Edit Dialog */}
+      {bulkEditField !== null && (
+        <BulkEditDialog
+          isOpen={bulkEditField !== null}
+          onClose={() => setBulkEditField(null)}
+          fieldName={bulkEditField}
+          selectedRows={Array.from(selectedRows)}
+          results={queryState.results}
+          tabId={tab.id}
+          tableInfo={tableInfo}
+        />
+      )}
     </div>
   );
 }

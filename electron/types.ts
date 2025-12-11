@@ -102,3 +102,19 @@ export interface QueryProgress {
   items?: Record<string, unknown>[]; // Batch of items just fetched
   isComplete?: boolean;              // Signals pagination complete
 }
+
+// Write operation types
+export interface BatchWriteOperation {
+  type: 'put' | 'delete' | 'pk-change';
+  tableName: string;
+  key?: Record<string, unknown>;
+  item?: Record<string, unknown>;
+  // For pk-change: oldKey + newItem
+  oldKey?: Record<string, unknown>;
+  newItem?: Record<string, unknown>;
+}
+
+export interface WriteProgress {
+  processed: number;
+  total: number;
+}
