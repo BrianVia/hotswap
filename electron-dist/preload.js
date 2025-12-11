@@ -35,6 +35,16 @@ const api = {
         ipcRenderer.on('system:theme-changed', handler);
         return () => ipcRenderer.removeListener('system:theme-changed', handler);
     },
+    // Auto-Update
+    getAppVersion: () => ipcRenderer.invoke('app:get-version'),
+    getUpdateStatus: () => ipcRenderer.invoke('updater:get-status'),
+    checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+    quitAndInstall: () => ipcRenderer.invoke('updater:quit-and-install'),
+    onUpdateStatusChange: (callback) => {
+        const handler = (_event, status) => callback(status);
+        ipcRenderer.on('update-status-changed', handler);
+        return () => ipcRenderer.removeListener('update-status-changed', handler);
+    },
 };
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object

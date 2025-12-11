@@ -2,7 +2,8 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -17,15 +18,11 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
-      - run: npm run package:mac
+      - name: Build and Publish
+        run: npm run build && electron-builder --mac --publish always
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mac-build
-          path: |
-            release/*.dmg
-            release/*.zip
 
   build-linux:
     runs-on: ubuntu-latest
@@ -36,23 +33,7 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
-      - run: npm run package:linux
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-build
-          path: release/*.AppImage
-
-  release:
-    needs: [build-mac, build-linux]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.sha }}
-          name: Build ${{ github.sha }}
-          files: artifacts/*
-          generate_release_notes: true
+      - name: Build and Publish
+        run: npm run build && electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

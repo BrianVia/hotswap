@@ -121,6 +121,16 @@ export interface WriteProgress {
   total: number;
 }
 
+// Auto-Update types
+export type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | { state: 'not-available' }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string };
+
 export interface ScanParams {
   tableName: string;
   indexName?: string;
@@ -152,6 +162,12 @@ declare global {
       // System
       getSystemTheme: () => Promise<'light' | 'dark'>;
       onThemeChange: (callback: (theme: 'light' | 'dark') => void) => () => void;
+      // Auto-Update
+      getAppVersion: () => Promise<string>;
+      getUpdateStatus: () => Promise<UpdateStatus>;
+      checkForUpdates: () => Promise<void>;
+      quitAndInstall: () => Promise<void>;
+      onUpdateStatusChange: (callback: (status: UpdateStatus) => void) => () => void;
     };
   }
 }

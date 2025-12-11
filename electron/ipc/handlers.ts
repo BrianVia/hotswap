@@ -1,10 +1,11 @@
-import { ipcMain, nativeTheme, BrowserWindow } from 'electron';
+import { ipcMain, nativeTheme, BrowserWindow, app } from 'electron';
 import { ListTablesCommand, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
 import { QueryCommand, ScanCommand, PutCommand, UpdateCommand, DeleteCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { parseAwsConfig } from '../services/config-parser.js';
 import { checkAuthStatus, loginWithSSO } from '../services/credential-manager.js';
 import { getDynamoDBClient, getDynamoDBDocClient, clearClientsForProfile } from '../services/dynamo-client-factory.js';
 import { buildQueryCommand, buildScanCommand, type ScanParams } from '../services/query-executor.js';
+import { getUpdateStatus, checkForUpdates, quitAndInstall } from '../updater.js';
 import type { TableInfo, KeySchemaElement, AttributeDefinition, GlobalSecondaryIndex, LocalSecondaryIndex, QueryParams, QueryResult, BatchQueryResult, QueryProgress } from '../types.js';
 
 export function registerIpcHandlers(): void {
@@ -495,5 +496,23 @@ export function registerIpcHandlers(): void {
     BrowserWindow.getAllWindows().forEach(window => {
       window.webContents.send('system:theme-changed', theme);
     });
+  });
+
+  // ============ Auto-Update ============
+
+  ipcMain.handle('updater:get-status', () => {
+    return getUpdateStatus();
+  });
+
+  ipcMain.handle('updater:check', () => {
+    checkForUpdates();
+  });
+
+  ipcMain.handle('updater:quit-and-install', () => {
+    quitAndInstall();
+  });
+
+  ipcMain.handle('app:get-version', () => {
+    return app.getVersion();
   });
 }

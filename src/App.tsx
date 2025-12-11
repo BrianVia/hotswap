@@ -3,6 +3,7 @@ import { ProfileSelector } from './components/ProfileSelector';
 import { TableList } from './components/TableList';
 import { TabBar } from './components/TabBar';
 import { TabContent } from './components/TabContent';
+import { UpdateNotifier } from './components/UpdateNotifier';
 
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -52,6 +53,9 @@ function App() {
           </div>
         </main>
       </div>
+
+      {/* Update notification */}
+      <UpdateNotifier />
     </div>
   );
 }

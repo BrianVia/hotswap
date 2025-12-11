@@ -17,7 +17,8 @@
     "package:mac": "npm run build && electron-builder --mac --publish never",
     "package:linux": "npm run build && electron-builder --linux --publish never",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "npm version patch && git push --follow-tags"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.947.0",
@@ -29,6 +30,8 @@
     "@tanstack/react-virtual": "^3.13.13",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.6.2",
     "ini": "^6.0.0",
     "lucide-react": "^0.556.0",
     "react": "^19.2.0",
@@ -63,6 +66,12 @@
     "appId": "com.hotswap.app",
     "productName": "HotSwap",
     "icon": "assets/app-icon-macos.png",
+    "publish": {
+      "provider": "github",
+      "owner": "BrianVia",
+      "repo": "hotswap",
+      "private": true
+    },
     "directories": {
       "output": "release"
     },

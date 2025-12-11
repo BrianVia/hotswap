@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { registerIpcHandlers } from './ipc/handlers.js';
+import { initAutoUpdater } from './updater.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,6 +54,11 @@ app.whenReady().then(() => {
 
   registerIpcHandlers();
   createWindow();
+
+  // Initialize auto-updater after window is created
+  if (mainWindow) {
+    initAutoUpdater(mainWindow);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -2,6 +2,15 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { AwsProfile, TableInfo, AuthStatus, QueryParams, QueryResult, BatchQueryResult, QueryProgress, BatchWriteOperation, WriteProgress } from './types.js';
 import type { ScanParams } from './services/query-executor.js';
 
+export type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | { state: 'not-available' }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string };
+
 // Type declaration for the renderer
 declare global {
   interface Window {
@@ -77,11 +86,30 @@ const api = {
   // System
   getSystemTheme: (): Promise<'light' | 'dark'> =>
     ipcRenderer.invoke('system:get-theme'),
-  
+
   onThemeChange: (callback: (theme: 'light' | 'dark') => void) => {
     const handler = (_event: Electron.IpcRendererEvent, theme: 'light' | 'dark') => callback(theme);
     ipcRenderer.on('system:theme-changed', handler);
     return () => ipcRenderer.removeListener('system:theme-changed', handler);
+  },
+
+  // Auto-Update
+  getAppVersion: (): Promise<string> =>
+    ipcRenderer.invoke('app:get-version'),
+
+  getUpdateStatus: (): Promise<UpdateStatus> =>
+    ipcRenderer.invoke('updater:get-status'),
+
+  checkForUpdates: (): Promise<void> =>
+    ipcRenderer.invoke('updater:check'),
+
+  quitAndInstall: (): Promise<void> =>
+    ipcRenderer.invoke('updater:quit-and-install'),
+
+  onUpdateStatusChange: (callback: (status: UpdateStatus) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => callback(status);
+    ipcRenderer.on('update-status-changed', handler);
+    return () => ipcRenderer.removeListener('update-status-changed', handler);
   },
 };
 
