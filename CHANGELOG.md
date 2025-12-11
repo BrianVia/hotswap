@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/BrianVia/hotswap/compare/v1.0.0...v1.0.1) (2025-12-11)
+
+
+### Bug Fixes
+
+* use npx for electron-builder in CI workflow ([4ca4555](https://github.com/BrianVia/hotswap/commit/4ca45550329d55cb9602de822342d17a5d48d6f5))
+
 ## 1.0.0 (2025-12-11)
 
 
