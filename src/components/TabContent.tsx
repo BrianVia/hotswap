@@ -1687,9 +1687,66 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
       {contextMenu.visible && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 min-w-[180px] bg-popover border rounded-md shadow-lg py-1"
+          className="fixed z-50 min-w-[200px] bg-popover border rounded-md shadow-lg py-1"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
+          {/* Edit options - first like Dynobase */}
+          {selectedRows.size <= 1 && contextMenu.rowIndex !== null && (
+            <>
+              <button
+                onClick={() => {
+                  setEditingRow(contextMenu.rowIndex);
+                  setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+                }}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit Item
+                </span>
+              </button>
+              <button
+                onClick={() => {
+                  setJsonEditingRow(contextMenu.rowIndex);
+                  setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+                }}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <Code className="h-3.5 w-3.5" />
+                  Edit as JSON
+                </span>
+              </button>
+              <div className="border-t my-1" />
+            </>
+          )}
+
+          {/* Bulk edit for multiple rows */}
+          {selectedRows.size > 1 && (
+            <>
+              <div className="px-3 py-1.5">
+                <div className="text-xs text-muted-foreground mb-1">
+                  Set field for {selectedRows.size} rows:
+                </div>
+                <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                  {columns.slice(0, 20).map((col) => (
+                    <button
+                      key={col.id}
+                      onClick={() => {
+                        setBulkEditField(col.id as string);
+                        setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+                      }}
+                      className="px-2 py-0.5 text-xs rounded bg-muted hover:bg-accent transition-colors"
+                    >
+                      {col.id}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="border-t my-1" />
+            </>
+          )}
+
           {/* Copy options */}
           <button
             onClick={() => {
@@ -1712,6 +1769,10 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
             <Filter className="h-3.5 w-3.5" />
             Copy with filter...
           </button>
+
+          <div className="border-t my-1" />
+
+          {/* Export */}
           <button
             onClick={() => {
               setShowExportDialog(true);
@@ -1722,60 +1783,19 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
             <Download className="h-3.5 w-3.5" />
             Export...
           </button>
+
           <div className="border-t my-1" />
-          {/* Edit options */}
-          {selectedRows.size <= 1 && contextMenu.rowIndex !== null && (
-            <>
-              <button
-                onClick={() => {
-                  setEditingRow(contextMenu.rowIndex);
-                  setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
-                }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                Edit Row...
-              </button>
-              <button
-                onClick={() => {
-                  setJsonEditingRow(contextMenu.rowIndex);
-                  setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
-                }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
-              >
-                <Code className="h-3.5 w-3.5" />
-                View/Edit JSON...
-              </button>
-            </>
-          )}
-          {selectedRows.size > 1 && (
-            <div className="px-3 py-1.5">
-              <div className="text-xs text-muted-foreground mb-1">
-                Set field for {selectedRows.size} rows:
-              </div>
-              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
-                {columns.slice(0, 20).map((col) => (
-                  <button
-                    key={col.id}
-                    onClick={() => {
-                      setBulkEditField(col.id as string);
-                      setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
-                    }}
-                    className="px-2 py-0.5 text-xs rounded bg-muted hover:bg-accent transition-colors"
-                  >
-                    {col.id}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="border-t my-1" />
+
+          {/* Delete - last with keyboard shortcut */}
           <button
             onClick={handleDeleteRow}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors text-red-500"
+            className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors text-red-500"
           >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete {selectedRows.size > 1 ? `${selectedRows.size} rows` : 'row'}
+            <span className="flex items-center gap-2">
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete {selectedRows.size > 1 ? `${selectedRows.size} rows` : 'row'}
+            </span>
+            <span className="text-xs text-muted-foreground">⌘⌫</span>
           </button>
         </div>
       )}
