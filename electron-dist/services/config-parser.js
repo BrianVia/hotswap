@@ -25,10 +25,17 @@ export async function parseAwsConfig() {
             });
         }
     }
-    // Second pass: extract profiles
+    // Second pass: extract profiles (including [default] section)
     for (const [key, value] of Object.entries(parsed)) {
+        let profileName = null;
         if (key.startsWith('profile ')) {
-            const profileName = key.replace('profile ', '');
+            profileName = key.replace('profile ', '');
+        }
+        else if (key === 'default') {
+            // Handle [default] section which doesn't have "profile " prefix
+            profileName = 'default';
+        }
+        if (profileName && (value.sso_session || value.sso_account_id)) {
             const ssoSession = value.sso_session ? ssoSessions.get(value.sso_session) : undefined;
             profiles.push({
                 name: profileName,

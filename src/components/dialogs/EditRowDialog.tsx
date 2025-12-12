@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, memo, useCallback } from 'react';
-import { AlertCircle, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, useMemo, useEffect, memo, useCallback, useRef } from 'react';
+import { AlertCircle, X, ChevronDown, ChevronRight, GripHorizontal } from 'lucide-react';
 import { Button } from '../ui/button';
 import { usePendingChangesStore } from '@/stores/pending-changes-store';
 import { cn } from '@/lib/utils';
@@ -148,6 +148,45 @@ export function EditRowDialog({
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [showPkWarning, setShowPkWarning] = useState(false);
 
+  // Resize state
+  const [size, setSize] = useState({ width: 672, height: 600 });
+  const isResizing = useRef(false);
+  const startPos = useRef({ x: 0, y: 0 });
+  const startSize = useRef({ width: 0, height: 0 });
+
+  // Reset size when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setSize({ width: 672, height: 600 });
+    }
+  }, [isOpen]);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    startPos.current = { x: e.clientX, y: e.clientY };
+    startSize.current = { ...size };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current) return;
+      const deltaX = e.clientX - startPos.current.x;
+      const deltaY = e.clientY - startPos.current.y;
+      setSize({
+        width: Math.max(400, Math.min(window.innerWidth * 0.95, startSize.current.width + deltaX)),
+        height: Math.max(300, Math.min(window.innerHeight * 0.95, startSize.current.height + deltaY)),
+      });
+    };
+
+    const handleMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [size]);
+
   // Get PK and SK attribute names
   const hashKeyAttr = tableInfo.keySchema.find((k) => k.keyType === 'HASH')?.attributeName;
   const rangeKeyAttr = tableInfo.keySchema.find((k) => k.keyType === 'RANGE')?.attributeName;
@@ -257,7 +296,10 @@ export function EditRowDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-popover border rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col mx-4">
+      <div
+        className="bg-popover border rounded-lg shadow-lg overflow-hidden flex flex-col relative"
+        style={{ width: size.width, height: size.height, maxWidth: '95vw', maxHeight: '95vh' }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h3 className="font-semibold text-lg">Edit Row</h3>
@@ -318,6 +360,14 @@ export function EditRowDialog({
               {showPkWarning ? 'Confirm Changes' : 'Save'}
             </Button>
           </div>
+        </div>
+
+        {/* Resize handle */}
+        <div
+          onMouseDown={handleResizeStart}
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground"
+        >
+          <GripHorizontal className="h-3 w-3 rotate-[-45deg]" />
         </div>
       </div>
     </div>

@@ -3,8 +3,8 @@ const { autoUpdater } = pkg;
 import log from 'electron-log';
 // Configure logging
 autoUpdater.logger = log;
-// Don't auto-download - we'll trigger it manually after user sees notification
-autoUpdater.autoDownload = true;
+// Don't auto-download - user must explicitly trigger download from the UI
+autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 let currentStatus = { state: 'idle' };
 let mainWindow = null;
