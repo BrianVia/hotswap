@@ -2,17 +2,17 @@
 
 ## Summary
 
-| # | Bug | Severity | Status | Agent |
-|---|-----|----------|--------|-------|
-| 1 | Query Progress Events Unscoped | Critical | Plan Ready | ✅ |
-| 2 | Numeric Query Params Broken | Critical | Plan Ready | ✅ |
-| 3 | ExportDialog setState During Render | Medium | Plan Ready | ✅ |
-| 4 | SSO Shell Injection Vulnerability | Critical | Plan Ready | ✅ |
-| 5 | Auto-Updater Config Contradiction | Low | Plan Ready | ✅ |
-| 6 | Table Open No Error Handling | Medium | Plan Ready | ✅ |
-| 7 | Pending Changes Ignores Failures | High | Plan Ready | ✅ |
-| 8 | Default Profile Not Loaded | Medium | Plan Ready | ✅ |
-| 9 | Batch Writes Drop Items | High | Plan Ready | ✅ |
+| # | Bug | Severity | Status |
+|---|-----|----------|--------|
+| 1 | Query Progress Events Unscoped | Critical | ⏳ Pending |
+| 2 | Numeric Query Params Broken | Critical | ⏳ Pending |
+| 3 | ExportDialog setState During Render | Medium | ⏳ Pending |
+| 4 | SSO Shell Injection Vulnerability | Critical | ⏳ Pending |
+| 5 | Auto-Updater Config Contradiction | Low | ⏳ Pending |
+| 6 | Table Open No Error Handling | Medium | ⏳ Pending |
+| 7 | Pending Changes Ignores Failures | High | ⏳ Pending |
+| 8 | Default Profile Not Loaded | Medium | ⏳ Pending |
+| 9 | Batch Writes Drop Items | High | ⏳ Pending |
 
 ---
 
