@@ -49,7 +49,7 @@
 
 ### 3. ExportDialog setState During Render
 **Severity:** Medium
-**Status:** ✅ Fixed
+**Status:** ✅ Fixed (commit a325d84)
 **Files:** `src/components/dialogs/ExportDialog.tsx:59-65`
 
 **Problem:** `useMemo` calls `setState` during render, violating React rules and causing potential render loops.
@@ -68,7 +68,7 @@ useEffect(() => {
 
 ### 4. SSO Login Shell Injection Vulnerability
 **Severity:** Critical (Security)
-**Status:** ✅ Fixed
+**Status:** ✅ Fixed (commit a325d84)
 **Files:** `electron/services/credential-manager.ts:63-66`
 
 **Problem:** `spawn('aws', [...], { shell: true })` allows shell injection via malicious profile names.
@@ -84,7 +84,7 @@ const process = spawn('aws', ['sso', 'login', '--profile', profileName], {
 
 ### 5. Auto-Updater Config Contradicts Comment
 **Severity:** Low
-**Status:** ✅ Fixed
+**Status:** ✅ Fixed (commit a325d84)
 **Files:** `electron/updater.ts:10-12`
 
 **Problem:** Comment says "Don't auto-download" but `autoDownload = true`. Updates download without consent.
@@ -127,7 +127,7 @@ const process = spawn('aws', ['sso', 'login', '--profile', profileName], {
 
 ### 8. Default Profile Not Loaded
 **Severity:** Medium
-**Status:** ✅ Fixed
+**Status:** ✅ Fixed (commit a325d84)
 **Files:** `electron/services/config-parser.ts:30-55`
 
 **Problem:** Parser only reads `[profile ...]` sections, ignores `[default]`.
