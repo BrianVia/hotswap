@@ -9,6 +9,7 @@ import {
   type SortingState,
   type ColumnOrderState,
   type VisibilityState,
+  type ColumnSizingState,
 } from '@tanstack/react-table';
 import {
   Hash,
@@ -38,6 +39,7 @@ import {
   Copy,
   Download,
   Code,
+  Bookmark,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { EditRowDialog } from './dialogs/EditRowDialog';
@@ -45,6 +47,8 @@ import { BulkEditDialog } from './dialogs/BulkEditDialog';
 import { FieldPickerDialog } from './dialogs/FieldPickerDialog';
 import { ExportDialog } from './dialogs/ExportDialog';
 import { JsonEditorDialog } from './dialogs/JsonEditorDialog';
+import { SaveBookmarkDialog } from './dialogs/SaveBookmarkDialog';
+import { InsertRowDialog } from './dialogs/InsertRowDialog';
 import { useTabsStore, type Tab } from '@/stores/tabs-store';
 import { useProfileStore } from '@/stores/profile-store';
 import { usePendingChangesStore, type PendingChange } from '@/stores/pending-changes-store';
@@ -385,6 +389,7 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
   const queryState = tab.queryState;
   const profileName = tab.profileName;
   const [showSkCondition, setShowSkCondition] = useState(false);
+  const [showSaveBookmark, setShowSaveBookmark] = useState(false);
 
   // Local state for inputs - provides instant feedback without waiting for store re-render
   const [localPkValue, setLocalPkValue] = useState(queryState.pkValue);
@@ -764,6 +769,15 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
           <Play className="h-3 w-3 mr-1" />
           Query
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 shrink-0"
+          onClick={() => setShowSaveBookmark(true)}
+          title="Save query as bookmark"
+        >
+          <Bookmark className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Sort Key Condition (collapsible) */}
@@ -1004,6 +1018,23 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
           </div>
         )}
       </div>
+
+      {/* Save Bookmark Dialog */}
+      <SaveBookmarkDialog
+        isOpen={showSaveBookmark}
+        onClose={() => setShowSaveBookmark(false)}
+        tableName={tableInfo.tableName}
+        queryState={{
+          selectedIndex: queryState.selectedIndex,
+          pkValue: localPkValue,
+          skOperator: queryState.skOperator,
+          skValue: localSkValue,
+          skValue2: localSkEndValue,
+          filters: queryState.filters,
+          maxResults: queryState.maxResults,
+          scanForward: queryState.scanForward,
+        }}
+      />
     </div>
   );
 }, (prevProps, nextProps) => {
@@ -1053,6 +1084,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([]);
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [lastSelectedRow, setLastSelectedRow] = useState<number | null>(null);
@@ -1070,6 +1102,8 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [showFieldPicker, setShowFieldPicker] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showSaveBookmarkDialog, setShowSaveBookmarkDialog] = useState(false);
+  const [showInsertDialog, setShowInsertDialog] = useState(false);
 
   // Get PK and SK attribute names
   const hashKeyAttr = tableInfo.keySchema.find((k) => k.keyType === 'HASH')?.attributeName;
@@ -1282,11 +1316,19 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
   const table = useReactTable({
     data: queryState.results,
     columns,
-    state: { sorting, columnOrder, columnVisibility },
+    state: { sorting, columnOrder, columnVisibility, columnSizing },
     onSortingChange: setSorting,
     onColumnOrderChange: setColumnOrder,
+    onColumnSizingChange: setColumnSizing,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange',
+    defaultColumn: {
+      minSize: 60,
+      size: 150,
+      maxSize: 800,
+    },
   });
 
   const rows = table.getRowModel().rows;
@@ -1473,7 +1515,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
   }
 
   return (
-    <div className="border rounded-lg bg-card flex flex-col overflow-hidden">
+    <div className="border rounded-lg bg-card flex flex-col overflow-hidden h-full">
       {/* Pending Changes Bar */}
       {hasPendingChanges && (
         <div className="flex items-center justify-between px-3 py-2 bg-amber-500/10 border-b border-amber-500/30">
@@ -1515,10 +1557,9 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
       {queryState.results.length > 0 && (
         <div
           ref={parentRef}
-          className="overflow-auto flex-1"
-          style={{ maxHeight: hasPendingChanges ? 'calc(100vh - 320px)' : 'calc(100vh - 280px)' }}
+          className="overflow-auto flex-1 min-h-0"
         >
-          <table className="text-sm border-collapse" style={{ minWidth: 'max-content' }}>
+          <table className="text-sm border-collapse" style={{ width: table.getCenterTotalSize() }}>
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm">
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id} className="border-b">
@@ -1531,10 +1572,10 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
                       onDrop={(e) => handleDrop(e, header.id)}
                       onDragEnd={handleDragEnd}
                       className={cn(
-                        'px-2 py-1.5 text-left font-medium text-muted-foreground cursor-grab active:cursor-grabbing whitespace-nowrap group',
+                        'px-2 py-1.5 text-left font-medium text-muted-foreground cursor-grab active:cursor-grabbing whitespace-nowrap group relative',
                         draggedColumn === header.id && 'opacity-50'
                       )}
-                      style={{ minWidth: '120px' }}
+                      style={{ width: header.getSize() }}
                     >
                       <div className="flex items-center gap-1">
                         <GripVertical className="h-3 w-3 opacity-30" />
@@ -1555,6 +1596,24 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
                           <EyeOff className="h-3 w-3" />
                         </button>
                       </div>
+                      {/* Resize handle */}
+                      <div
+                        draggable={false}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          header.getResizeHandler()(e);
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation();
+                          header.getResizeHandler()(e);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          'absolute right-0 top-0 h-full w-2 cursor-col-resize select-none touch-none',
+                          'hover:bg-primary/50 active:bg-primary',
+                          header.column.getIsResizing() && 'bg-primary'
+                        )}
+                      />
                     </th>
                   ))}
                 </tr>
@@ -1596,7 +1655,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
                       <td
                         key={cell.id}
                         className="px-2 py-1 align-top whitespace-nowrap"
-                        style={{ minWidth: '120px', maxWidth: '400px' }}
+                        style={{ width: cell.column.getSize() }}
                       >
                         <div className="truncate">
                           {flexRender(
@@ -1677,6 +1736,10 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
               className="w-20 h-6 px-1.5 rounded border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
+          <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowInsertDialog(true)} title="Insert new record">
+            <Plus className="h-3 w-3 mr-1" />
+            <span className="text-xs">Insert</span>
+          </Button>
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleClearResults} title="Clear results">
             <X className="h-3 w-3" />
           </Button>
@@ -1915,6 +1978,24 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
         rows={queryState.results}
         selectedRowIndices={Array.from(selectedRows)}
         tableName={tableInfo.tableName}
+      />
+
+      {/* Insert Row Dialog */}
+      <InsertRowDialog
+        isOpen={showInsertDialog}
+        onClose={() => setShowInsertDialog(false)}
+        onInserted={() => {
+          // Clear results to encourage re-query
+          updateTabQueryState(tab.id, {
+            results: [],
+            count: 0,
+            scannedCount: 0,
+            lastEvaluatedKey: undefined,
+          });
+        }}
+        tableInfo={tableInfo}
+        profileName={tab.profileName}
+        existingColumns={allFieldNames}
       />
     </div>
   );
@@ -2166,9 +2247,9 @@ export function TabContent() {
   };
 
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="sticky top-0 bg-background border-b p-4 z-10">
+      <div className="shrink-0 bg-background border-b p-4">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold truncate">{tableInfo.tableName}</h2>
@@ -2270,12 +2351,14 @@ export function TabContent() {
       </div>
 
       {/* Main Content */}
-      <div className="p-4 space-y-3 min-w-0">
+      <div className="flex-1 min-h-0 p-4 flex flex-col gap-3 min-w-0">
         {/* Compact Query Builder */}
-        <div className="border rounded-lg overflow-hidden">
+        <div className="shrink-0 border rounded-lg overflow-hidden">
           <TabQueryBuilder tab={activeTab} tableInfo={tableInfo} />
         </div>
-        <TabResultsTable tab={activeTab} tableInfo={tableInfo} onFetchMore={handleFetchMore} />
+        <div className="flex-1 min-h-0">
+          <TabResultsTable tab={activeTab} tableInfo={tableInfo} onFetchMore={handleFetchMore} />
+        </div>
       </div>
     </div>
   );
