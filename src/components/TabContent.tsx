@@ -1066,6 +1066,8 @@ interface ContextMenuState {
   x: number;
   y: number;
   rowIndex: number | null;
+  cellValue?: string;
+  columnId?: string;
 }
 
 const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) {
@@ -1398,7 +1400,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
     setLastSelectedRow(rowIndex);
   }, [lastSelectedRow]);
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, rowIndex: number) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent, rowIndex: number, cellValue?: string, columnId?: string) => {
     e.preventDefault();
     // If right-clicking on an unselected row, select it
     if (!selectedRows.has(rowIndex)) {
@@ -1409,6 +1411,8 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
       x: e.clientX,
       y: e.clientY,
       rowIndex,
+      cellValue,
+      columnId,
     });
   }, [selectedRows]);
 
@@ -1639,7 +1643,6 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
                     key={row.id}
                     data-index={virtualRow.index}
                     onClick={(e) => handleRowClick(e, originalIndex)}
-                    onContextMenu={(e) => handleContextMenu(e, originalIndex)}
                     className={cn(
                       'border-b last:border-0 transition-colors cursor-pointer',
                       isSelected
@@ -1651,20 +1654,28 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
                     )}
                     style={{ height: `${virtualRow.size}px` }}
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <td
-                        key={cell.id}
-                        className="px-2 py-1 align-top whitespace-nowrap"
-                        style={{ width: cell.column.getSize() }}
-                      >
-                        <div className="truncate">
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </div>
-                      </td>
-                    ))}
+                    {row.getVisibleCells().map((cell) => {
+                      const cellValue = cell.getValue();
+                      const cellString = cellValue === null ? 'null'
+                        : cellValue === undefined ? ''
+                        : typeof cellValue === 'object' ? JSON.stringify(cellValue, null, 2)
+                        : String(cellValue);
+                      return (
+                        <td
+                          key={cell.id}
+                          className="px-2 py-1 align-top whitespace-nowrap select-text"
+                          style={{ width: cell.column.getSize() }}
+                          onContextMenu={(e) => handleContextMenu(e, originalIndex, cellString, cell.column.id)}
+                        >
+                          <div className="truncate">
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </div>
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })}
@@ -1811,6 +1822,23 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
           )}
 
           {/* Copy options */}
+          {contextMenu.cellValue !== undefined && selectedRows.size <= 1 && (
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(contextMenu.cellValue || '');
+                setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+              }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              Copy Cell
+              {contextMenu.columnId && (
+                <span className="ml-auto text-xs text-muted-foreground truncate max-w-[100px]">
+                  {contextMenu.columnId}
+                </span>
+              )}
+            </button>
+          )}
           <button
             onClick={() => {
               const rowsToCopy = selectedRows.size > 0 ? Array.from(selectedRows) : (contextMenu.rowIndex !== null ? [contextMenu.rowIndex] : []);
@@ -1820,7 +1848,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
           >
             <Copy className="h-3.5 w-3.5" />
-            Copy {selectedRows.size > 1 ? `${selectedRows.size} rows` : 'row'}
+            Copy {selectedRows.size > 1 ? `${selectedRows.size} rows` : 'Row'}
           </button>
           <button
             onClick={() => {
