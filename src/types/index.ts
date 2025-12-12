@@ -139,6 +139,24 @@ export interface ScanParams {
   filters?: FilterCondition[];
 }
 
+// Saved bookmark for query configurations
+export interface SavedBookmark {
+  id: string;
+  name: string;
+  tablePrefix: string; // Stable prefix for cross-environment matching
+  createdAt: number;
+  updatedAt: number;
+  // Query state to restore
+  selectedIndex: string | null;
+  pkValue: string;
+  skOperator: SkOperator;
+  skValue: string;
+  skValue2: string;
+  filters: FilterCondition[];
+  maxResults: number;
+  scanForward: boolean;
+}
+
 // Declare the hotswap API on window
 declare global {
   interface Window {

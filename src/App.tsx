@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
 import { ProfileSelector } from './components/ProfileSelector';
 import { TableList } from './components/TableList';
+import { BookmarksList } from './components/BookmarksList';
 import { TabBar } from './components/TabBar';
 import { TabContent } from './components/TabContent';
 import { UpdateNotifier } from './components/UpdateNotifier';
+import { useTabsStore } from './stores/tabs-store';
 
 function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  // Subscribe to both tabs and activeTabId to properly track active tab changes
+  const activeTab = useTabsStore((state) =>
+    state.activeTabId
+      ? state.tabs.find((t) => t.id === state.activeTabId) || null
+      : null
+  );
 
   // Initialize theme from system
   useEffect(() => {
@@ -40,9 +48,12 @@ function App() {
 
       {/* Main content */}
       <div className="flex-1 flex min-h-0">
-        {/* Sidebar - Table List */}
-        <aside className="w-80 border-r flex flex-col shrink-0">
-          <TableList />
+        {/* Sidebar - Table List + Bookmarks */}
+        <aside className="w-80 border-r flex flex-col shrink-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <TableList />
+            <BookmarksList tableName={activeTab?.tableName ?? null} />
+          </div>
         </aside>
 
         {/* Main panel - Tabs + Content */}

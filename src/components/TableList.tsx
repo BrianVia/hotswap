@@ -179,9 +179,9 @@ export function TableList() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center gap-2 p-3 border-b">
+    <div className="flex flex-col">
+      {/* Header - sticky at top */}
+      <div className="flex items-center gap-2 p-3 border-b sticky top-0 bg-background z-10">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
@@ -210,7 +210,7 @@ export function TableList() {
       )}
 
       {/* Table list */}
-      <div className="flex-1 overflow-y-auto">
+      <div>
         {isLoadingTables ? (
           <div className="flex items-center justify-center h-32">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -262,7 +262,7 @@ export function TableList() {
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-2 border-t text-xs text-muted-foreground">
+      <div className="px-3 py-2 border-t text-xs text-muted-foreground sticky bottom-0 bg-background">
         {filteredTables.length} of {tables.length} tables
       </div>
 
