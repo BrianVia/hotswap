@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/BrianVia/hotswap/compare/v1.0.2...v1.1.0) (2025-12-12)
+
+
+### Features
+
+* add View/Edit JSON option for rows ([0fb1e7c](https://github.com/BrianVia/hotswap/commit/0fb1e7cfe48eeda1162e8c6517835dc4cee2ec52))
+
+
+### Bug Fixes
+
+* make JSON editor modal 85% viewport, click-away to close ([8880605](https://github.com/BrianVia/hotswap/commit/8880605ca3f3be7a1b8437461e1a99718054e0f9))
+* reorder context menu like Dynobase ([38e8219](https://github.com/BrianVia/hotswap/commit/38e821975a3651ec6e53f472ad0937b73a3887cd))
+
 ## [1.0.2](https://github.com/BrianVia/hotswap/compare/v1.0.1...v1.0.2) (2025-12-11)
 
 
