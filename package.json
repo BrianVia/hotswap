@@ -1,7 +1,7 @@
 {
   "name": "hotswap",
   "productName": "HotSwap",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "DynamoDB Explorer for AWS SSO profiles",
   "repository": {
     "type": "git",
