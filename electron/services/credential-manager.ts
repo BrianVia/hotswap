@@ -60,8 +60,8 @@ export async function loginWithSSO(profileName: string): Promise<{ success: bool
   return new Promise((resolve) => {
     console.log(`Starting SSO login for profile: ${profileName}`);
     
+    // Note: shell: false to prevent command injection via malicious profile names
     const process = spawn('aws', ['sso', 'login', '--profile', profileName], {
-      shell: true,
       stdio: ['inherit', 'pipe', 'pipe'],
     });
 

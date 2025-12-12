@@ -172,11 +172,21 @@ export function JsonEditorDialog({
     onClose();
   };
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    // Only close if clicking the backdrop itself and there are no changes
+    if (e.target === e.currentTarget && changes.length === 0) {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-popover border rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col mx-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-popover border rounded-lg shadow-lg w-[85vw] h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-2">
@@ -232,13 +242,13 @@ export function JsonEditorDialog({
         )}
 
         {/* JSON Editor */}
-        <div className="flex-1 overflow-hidden p-4">
+        <div className="flex-1 overflow-hidden p-4 flex flex-col">
           <textarea
             value={jsonText}
             onChange={(e) => handleJsonChange(e.target.value)}
             spellCheck={false}
             className={cn(
-              'w-full h-full min-h-[300px] p-3 rounded-md border bg-muted/30 font-mono text-sm resize-none',
+              'w-full flex-1 p-3 rounded-md border bg-muted/30 font-mono text-sm resize-none',
               'focus:outline-none focus:ring-2 focus:ring-ring',
               parseError && 'border-red-500'
             )}

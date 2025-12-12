@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Check, Download } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
@@ -57,7 +57,7 @@ export function ExportDialog({
   const [exportSelected, setExportSelected] = useState(selectedRowIndices.length > 0);
 
   // Reset selection when dialog opens
-  useMemo(() => {
+  useEffect(() => {
     if (isOpen) {
       setSelectedFields(new Set(fields));
       setExportSelected(selectedRowIndices.length > 0);
