@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.0](https://github.com/BrianVia/hotswap/compare/v1.1.0...v1.2.0) (2025-12-12)
+
+
+### Features
+
+* add bookmarks feature and fix sidebar layout ([e288227](https://github.com/BrianVia/hotswap/commit/e2882272473a1951a6a58c7c58d43360e5b24f42))
+* add cell-level copy to results table ([a4a555d](https://github.com/BrianVia/hotswap/commit/a4a555d082be92b3e2bf154e1b94906e36cba355))
+* add Insert Row dialog with JSON mode and column resizing ([159b526](https://github.com/BrianVia/hotswap/commit/159b526718b0c77ff6d113af7d3846bcfb7dcbbb))
+
 ## [1.1.0](https://github.com/BrianVia/hotswap/compare/v1.0.2...v1.1.0) (2025-12-12)
 
 
