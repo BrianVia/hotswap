@@ -71,14 +71,14 @@ dynomite/
 - Query Execution with results table
 - Post-query filtering (IN arrays, contains, etc.)
 - Export to JSON/CSV with field selection
-- Cross-environment query switching ("Open in pegasus-3")
+- Cross-environment query switching ("Open in Profile B")
 
 ## Table Matching Logic
 
-Tables are matched across environments using their stable prefix:
-- `MetadataStack-savvymetadata09BC1DD1` (stable) + `-1QOLI4L3PHUH5` (varies per env)
+Tables are matched across environments using their stable CloudFormation prefix:
+- `MyStack-MyTableLogicalId` (stable) + `-RANDOMSUFFIX` (varies per env)
 
-This allows "Open in pegasus-3" to find the equivalent table.
+This allows "Open in Profile B" to find the equivalent table in another AWS account/environment.
 
 ## Notes
 
