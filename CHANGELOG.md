@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/BrianVia/dynomite/compare/v1.2.0...v1.3.0) (2025-12-13)
+
+
+### Features
+
+* rename project from HotSwap to Dynomite ([d460ab9](https://github.com/BrianVia/dynomite/commit/d460ab94f4faf5137e659096909e050b7170be0d))
+
+
+### Bug Fixes
+
+* allow opening multiple tabs for the same table ([7996c37](https://github.com/BrianVia/dynomite/commit/7996c37afdec631d133cf1dfa6b93723dd64cedd))
+
 ## [1.2.0](https://github.com/BrianVia/hotswap/compare/v1.1.0...v1.2.0) (2025-12-12)
 
 
