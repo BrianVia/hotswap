@@ -798,17 +798,6 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
           <Play className="h-3 w-3 mr-1" />
           Query
         </Button>
-        {queryState.isLoading && (
-          <Button
-            variant="destructive"
-            size="sm"
-            className="h-8 px-3 text-xs shrink-0"
-            onClick={handleCancel}
-          >
-            <X className="h-3 w-3 mr-1" />
-            Cancel
-          </Button>
-        )}
         <Button
           variant="ghost"
           size="sm"
@@ -1099,6 +1088,7 @@ interface TabResultsTableProps {
   tab: Tab;
   tableInfo: TableInfo;
   onFetchMore: () => Promise<void>;
+  onCancel: () => void;
 }
 
 interface ContextMenuState {
@@ -1110,7 +1100,7 @@ interface ContextMenuState {
   columnId?: string;
 }
 
-const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchMore }: TabResultsTableProps) {
+const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchMore, onCancel }: TabResultsTableProps) {
   const { updateTabQueryState } = useTabsStore();
   const { selectedProfile } = useProfileStore();
   const {
@@ -1759,7 +1749,15 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
             <span className="text-muted-foreground/60">({queryState.scannedCount.toLocaleString()} scanned)</span>
           )}
           {(queryState.isLoading || queryState.isFetchingMore) && (
-            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            <>
+              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+              <button
+                onClick={onCancel}
+                className="ml-1 px-1.5 py-0.5 rounded text-xs bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+              >
+                Cancel Query
+              </button>
+            </>
           )}
           {queryState.queryElapsedMs !== undefined && (
             <span className="text-muted-foreground/60">
@@ -2210,6 +2208,18 @@ export function TabContent() {
     }
   }, [activeTab, tableInfo, updateTabQueryState]);
 
+  // Cancel in-flight query
+  const handleCancel = useCallback(async () => {
+    if (activeTab?.queryState.currentQueryId) {
+      await window.dynomite.cancelQuery(activeTab.queryState.currentQueryId);
+      updateTabQueryState(activeTab.id, {
+        isLoading: false,
+        isFetchingMore: false,
+        currentQueryId: undefined,
+      });
+    }
+  }, [activeTab, updateTabQueryState]);
+
   // Auto-scan when tab is opened for the first time using batch API
   useEffect(() => {
     if (activeTab && activeTab.tableInfo && !lastScannedTabs.current.has(activeTab.id)) {
@@ -2429,7 +2439,7 @@ export function TabContent() {
           <TabQueryBuilder tab={activeTab} tableInfo={tableInfo} />
         </div>
         <div className="flex-1 min-h-0">
-          <TabResultsTable tab={activeTab} tableInfo={tableInfo} onFetchMore={handleFetchMore} />
+          <TabResultsTable tab={activeTab} tableInfo={tableInfo} onFetchMore={handleFetchMore} onCancel={handleCancel} />
         </div>
       </div>
     </div>
