@@ -482,13 +482,15 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
   const skAttr = keySchema.find((k) => k.keyType === 'RANGE');
 
   // Extract available attribute names from fetched results for filter suggestions
+  // Sample first 100 items for performance - DynamoDB items have consistent schema
   const availableAttributes = useMemo(() => {
     if (queryState.results.length === 0) return [];
 
     const allKeys = new Set<string>();
-    queryState.results.forEach((item) => {
-      Object.keys(item).forEach((key) => allKeys.add(key));
-    });
+    const sampleSize = Math.min(100, queryState.results.length);
+    for (let i = 0; i < sampleSize; i++) {
+      Object.keys(queryState.results[i]).forEach((key) => allKeys.add(key));
+    }
 
     return Array.from(allKeys).sort((a, b) => {
       const pkSk = ['pk', 'PK', 'sk', 'SK', 'id', 'ID'];
@@ -1207,12 +1209,13 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
     navigator.clipboard.writeText(json);
   }, [queryState.results]);
 
-  // Get all field names from results
+  // Get all field names from results (sample first 100 for performance - DynamoDB items have consistent schema)
   const allFieldNames = useMemo(() => {
     const fields = new Set<string>();
-    queryState.results.forEach(row => {
-      Object.keys(row).forEach(key => fields.add(key));
-    });
+    const sampleSize = Math.min(100, queryState.results.length);
+    for (let i = 0; i < sampleSize; i++) {
+      Object.keys(queryState.results[i]).forEach(key => fields.add(key));
+    }
     // Sort with PK/SK first
     return Array.from(fields).sort((a, b) => {
       if (a === hashKeyAttr) return -1;
@@ -1226,10 +1229,12 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
   const columns = useMemo<ColumnDef<Record<string, unknown>>[]>(() => {
     if (queryState.results.length === 0) return [];
 
+    // Sample first 100 items for column detection (DynamoDB items have consistent schema)
     const allKeys = new Set<string>();
-    queryState.results.forEach((item) => {
-      Object.keys(item).forEach((key) => allKeys.add(key));
-    });
+    const sampleSize = Math.min(100, queryState.results.length);
+    for (let i = 0; i < sampleSize; i++) {
+      Object.keys(queryState.results[i]).forEach((key) => allKeys.add(key));
+    }
 
     const sortedKeys = Array.from(allKeys).sort((a, b) => {
       const pkSk = ['pk', 'PK', 'sk', 'SK', 'id', 'ID'];
