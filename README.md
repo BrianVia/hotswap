@@ -60,7 +60,7 @@ Dynomite auto-paginates through DynamoDB results with streaming progress updates
 | ~12,000 | ~2-3s | ~4,500 items/sec |
 | ~100,000 | ~10s | ~9,500 items/sec |
 
-*Benchmarks from querying production DynamoDB tables over network.*
+*Benchmarks from querying single partition keys / GSI partitions over network.*
 
 ## Prerequisites
 
