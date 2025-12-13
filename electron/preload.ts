@@ -56,6 +56,15 @@ const api = {
     return () => ipcRenderer.removeListener('query-progress', handler);
   },
 
+  onQueryStarted: (callback: (data: { queryId: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { queryId: string }) => callback(data);
+    ipcRenderer.on('query-started', handler);
+    return () => ipcRenderer.removeListener('query-started', handler);
+  },
+
+  cancelQuery: (queryId: string): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('dynamo:cancel-query', queryId),
+
   // Write operations
   putItem: (profileName: string, tableName: string, item: Record<string, unknown>): Promise<{ success: boolean }> =>
     ipcRenderer.invoke('dynamo:put-item', profileName, tableName, item),

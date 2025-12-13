@@ -157,7 +157,15 @@ export function registerIpcHandlers() {
     });
     // ============ Batch Query/Scan (with progress) ============
     const PROGRESS_THROTTLE_MS = 150;
+    const cancelledQueries = new Set();
+    let queryIdCounter = 0;
+    // Cancel a running query
+    ipcMain.handle('dynamo:cancel-query', (_event, queryId) => {
+        cancelledQueries.add(queryId);
+        return { success: true };
+    });
     ipcMain.handle('dynamo:query-batch', async (event, profileName, params, maxResults) => {
+        const queryId = `query-${++queryIdCounter}`;
         try {
             const docClient = await getDynamoDBDocClient(profileName);
             const allItems = [];
@@ -167,7 +175,30 @@ export function registerIpcHandlers() {
             const startTime = Date.now();
             let lastProgressTime = 0;
             let pendingItems = []; // Items waiting to be sent
+            // Send query ID to renderer so it can cancel
+            event.sender.send('query-started', { queryId });
             while (allItems.length < maxResults) {
+                // Check if cancelled
+                if (cancelledQueries.has(queryId)) {
+                    cancelledQueries.delete(queryId);
+                    const elapsedMs = Date.now() - startTime;
+                    event.sender.send('query-progress', {
+                        count: allItems.length,
+                        scannedCount: totalScanned,
+                        elapsedMs,
+                        items: pendingItems,
+                        isComplete: true,
+                        cancelled: true,
+                    });
+                    return {
+                        items: allItems,
+                        lastEvaluatedKey: lastKey,
+                        count: totalCount,
+                        scannedCount: totalScanned,
+                        elapsedMs,
+                        cancelled: true,
+                    };
+                }
                 const commandInput = buildQueryCommand({ ...params, exclusiveStartKey: lastKey });
                 const command = new QueryCommand(commandInput);
                 const response = await docClient.send(command);
@@ -182,6 +213,7 @@ export function registerIpcHandlers() {
                 if (now - lastProgressTime >= PROGRESS_THROTTLE_MS) {
                     lastProgressTime = now;
                     const progress = {
+                        queryId,
                         count: allItems.length,
                         scannedCount: totalScanned,
                         elapsedMs: now - startTime,
@@ -194,10 +226,12 @@ export function registerIpcHandlers() {
                     break;
             }
             // Send final progress with any remaining items and completion signal
+            const elapsedMs = Date.now() - startTime;
             const finalProgress = {
+                queryId,
                 count: allItems.length,
                 scannedCount: totalScanned,
-                elapsedMs: Date.now() - startTime,
+                elapsedMs,
                 items: pendingItems,
                 isComplete: true,
             };
@@ -207,15 +241,17 @@ export function registerIpcHandlers() {
                 lastEvaluatedKey: lastKey,
                 count: totalCount,
                 scannedCount: totalScanned,
-                elapsedMs: Date.now() - startTime,
+                elapsedMs,
             };
         }
         catch (error) {
+            cancelledQueries.delete(queryId);
             console.error('Batch query failed:', error);
             throw error;
         }
     });
     ipcMain.handle('dynamo:scan-batch', async (event, profileName, params, maxResults) => {
+        const queryId = `scan-${++queryIdCounter}`;
         try {
             const docClient = await getDynamoDBDocClient(profileName);
             const allItems = [];
@@ -225,7 +261,30 @@ export function registerIpcHandlers() {
             const startTime = Date.now();
             let lastProgressTime = 0;
             let pendingItems = []; // Items waiting to be sent
+            // Send query ID to renderer so it can cancel
+            event.sender.send('query-started', { queryId });
             while (allItems.length < maxResults) {
+                // Check if cancelled
+                if (cancelledQueries.has(queryId)) {
+                    cancelledQueries.delete(queryId);
+                    const elapsedMs = Date.now() - startTime;
+                    event.sender.send('query-progress', {
+                        count: allItems.length,
+                        scannedCount: totalScanned,
+                        elapsedMs,
+                        items: pendingItems,
+                        isComplete: true,
+                        cancelled: true,
+                    });
+                    return {
+                        items: allItems,
+                        lastEvaluatedKey: lastKey,
+                        count: totalCount,
+                        scannedCount: totalScanned,
+                        elapsedMs,
+                        cancelled: true,
+                    };
+                }
                 const commandInput = buildScanCommand({ ...params, exclusiveStartKey: lastKey });
                 const command = new ScanCommand(commandInput);
                 const response = await docClient.send(command);
@@ -240,6 +299,7 @@ export function registerIpcHandlers() {
                 if (now - lastProgressTime >= PROGRESS_THROTTLE_MS) {
                     lastProgressTime = now;
                     const progress = {
+                        queryId,
                         count: allItems.length,
                         scannedCount: totalScanned,
                         elapsedMs: now - startTime,
@@ -252,10 +312,12 @@ export function registerIpcHandlers() {
                     break;
             }
             // Send final progress with any remaining items and completion signal
+            const elapsedMs = Date.now() - startTime;
             const finalProgress = {
+                queryId,
                 count: allItems.length,
                 scannedCount: totalScanned,
-                elapsedMs: Date.now() - startTime,
+                elapsedMs,
                 items: pendingItems,
                 isComplete: true,
             };
@@ -265,10 +327,11 @@ export function registerIpcHandlers() {
                 lastEvaluatedKey: lastKey,
                 count: totalCount,
                 scannedCount: totalScanned,
-                elapsedMs: Date.now() - startTime,
+                elapsedMs,
             };
         }
         catch (error) {
+            cancelledQueries.delete(queryId);
             console.error('Batch scan failed:', error);
             throw error;
         }

@@ -558,6 +558,11 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
     // Accumulate items from progress events for streaming display
     let accumulatedItems: Record<string, unknown>[] = [];
 
+    // Listen for query start to capture query ID for cancellation
+    const unsubscribeStart = window.dynomite.onQueryStarted(({ queryId }) => {
+      updateTabQueryState(tab.id, { currentQueryId: queryId });
+    });
+
     // Listen for progress updates from backend - stream items as they arrive
     const unsubscribe = window.dynomite.onQueryProgress((progress) => {
       if (progress.items && progress.items.length > 0) {
@@ -570,6 +575,7 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
         queryElapsedMs: progress.elapsedMs,
         isFetchingMore: !progress.isComplete,
         isLoading: !progress.isComplete,
+        currentQueryId: progress.isComplete ? undefined : progress.queryId,
       });
     });
 
@@ -612,9 +618,11 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
         isLoading: false,
         isFetchingMore: false,
         queryElapsedMs: Date.now() - startTime,
+        currentQueryId: undefined,
       });
     } finally {
       unsubscribe();
+      unsubscribeStart();
     }
   };
 
@@ -636,6 +644,11 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
     // Accumulate items from progress events for streaming display
     let accumulatedItems: Record<string, unknown>[] = [];
 
+    // Listen for query start to capture query ID for cancellation
+    const unsubscribeStart = window.dynomite.onQueryStarted(({ queryId }) => {
+      updateTabQueryState(tab.id, { currentQueryId: queryId });
+    });
+
     // Listen for progress updates from backend - stream items as they arrive
     const unsubscribe = window.dynomite.onQueryProgress((progress) => {
       if (progress.items && progress.items.length > 0) {
@@ -648,6 +661,7 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
         queryElapsedMs: progress.elapsedMs,
         isFetchingMore: !progress.isComplete,
         isLoading: !progress.isComplete,
+        currentQueryId: progress.isComplete ? undefined : progress.queryId,
       });
     });
 
@@ -674,9 +688,22 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
         isLoading: false,
         isFetchingMore: false,
         queryElapsedMs: Date.now() - startTime,
+        currentQueryId: undefined,
       });
     } finally {
       unsubscribe();
+      unsubscribeStart();
+    }
+  };
+
+  const handleCancel = async () => {
+    if (queryState.currentQueryId) {
+      await window.dynomite.cancelQuery(queryState.currentQueryId);
+      updateTabQueryState(tab.id, {
+        isLoading: false,
+        isFetchingMore: false,
+        currentQueryId: undefined,
+      });
     }
   };
 
@@ -771,6 +798,17 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
           <Play className="h-3 w-3 mr-1" />
           Query
         </Button>
+        {queryState.isLoading && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="h-8 px-3 text-xs shrink-0"
+            onClick={handleCancel}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Cancel
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"

@@ -44,6 +44,7 @@ export interface TabQueryState {
   scannedCount: number;
   queryStartTime?: number; // Timestamp when query started
   queryElapsedMs?: number; // Elapsed time in ms
+  currentQueryId?: string; // ID of in-flight query (for cancellation)
 }
 
 export interface Tab {
@@ -88,6 +89,7 @@ const createDefaultQueryState = (): TabQueryState => ({
   scannedCount: 0,
   queryStartTime: undefined,
   queryElapsedMs: undefined,
+  currentQueryId: undefined,
 });
 
 let tabIdCounter = 0;

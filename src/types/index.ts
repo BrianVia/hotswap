@@ -95,14 +95,17 @@ export interface QueryResult {
 
 export interface BatchQueryResult extends QueryResult {
   elapsedMs: number;
+  cancelled?: boolean;
 }
 
 export interface QueryProgress {
+  queryId?: string;
   count: number;
   scannedCount: number;
   elapsedMs: number;
   items?: Record<string, unknown>[]; // Batch of items just fetched
   isComplete?: boolean;              // Signals pagination complete
+  cancelled?: boolean;               // Query was cancelled by user
 }
 
 // Write operation types
@@ -171,6 +174,8 @@ declare global {
       queryTableBatch: (profileName: string, params: QueryParams, maxResults: number) => Promise<BatchQueryResult>;
       scanTableBatch: (profileName: string, params: ScanParams, maxResults: number) => Promise<BatchQueryResult>;
       onQueryProgress: (callback: (progress: QueryProgress) => void) => () => void;
+      onQueryStarted: (callback: (data: { queryId: string }) => void) => () => void;
+      cancelQuery: (queryId: string) => Promise<{ success: boolean }>;
       // Write operations
       putItem: (profileName: string, tableName: string, item: Record<string, unknown>) => Promise<{ success: boolean }>;
       updateItem: (profileName: string, tableName: string, key: Record<string, unknown>, updates: Record<string, unknown>) => Promise<{ success: boolean }>;

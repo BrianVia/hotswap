@@ -93,14 +93,17 @@ export interface QueryResult {
 
 export interface BatchQueryResult extends QueryResult {
   elapsedMs: number;
+  cancelled?: boolean;
 }
 
 export interface QueryProgress {
+  queryId?: string;
   count: number;
   scannedCount: number;
   elapsedMs: number;
   items?: Record<string, unknown>[]; // Batch of items just fetched
   isComplete?: boolean;              // Signals pagination complete
+  cancelled?: boolean;               // Query was cancelled by user
 }
 
 // Write operation types

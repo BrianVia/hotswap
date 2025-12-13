@@ -18,6 +18,12 @@ const api = {
         ipcRenderer.on('query-progress', handler);
         return () => ipcRenderer.removeListener('query-progress', handler);
     },
+    onQueryStarted: (callback) => {
+        const handler = (_event, data) => callback(data);
+        ipcRenderer.on('query-started', handler);
+        return () => ipcRenderer.removeListener('query-started', handler);
+    },
+    cancelQuery: (queryId) => ipcRenderer.invoke('dynamo:cancel-query', queryId),
     // Write operations
     putItem: (profileName, tableName, item) => ipcRenderer.invoke('dynamo:put-item', profileName, tableName, item),
     updateItem: (profileName, tableName, key, updates) => ipcRenderer.invoke('dynamo:update-item', profileName, tableName, key, updates),
