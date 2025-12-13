@@ -36,6 +36,9 @@ A macOS Electron app for browsing and querying DynamoDB tables across multiple A
 - **Insert Rows**: Add new items directly from the UI
 - **Delete Items**: Remove items with confirmation
 - **Batch Operations**: Process multiple changes with progress tracking
+- **Transform Records with javascript predicates**: Map over your selected items or whole query and modify using JavaScript for dynamic updates per row.
+<img width="2070" height="1314" alt="image" src="https://github.com/user-attachments/assets/a4393765-20f8-4d5c-b580-fe468cfa61cd" />
+
 
 ### Export
 - **JSON/CSV Export**: Export query results to file
