@@ -1860,18 +1860,30 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
                   ))}
                 </div>
               </div>
-              {/* JavaScript edit option - only if right-clicked on a specific column */}
+              {/* Quick edit options for right-clicked column */}
               {contextMenu.columnId && (
-                <button
-                  onClick={() => {
-                    setScriptEditField(contextMenu.columnId!);
-                    setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
-                >
-                  <Code className="h-3.5 w-3.5" />
-                  Edit "{contextMenu.columnId}" with JavaScript ({selectedRows.size} rows)
-                </button>
+                <>
+                  <button
+                    onClick={() => {
+                      setBulkEditField(contextMenu.columnId!);
+                      setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Set "{contextMenu.columnId}" to value... ({selectedRows.size} rows)
+                  </button>
+                  <button
+                    onClick={() => {
+                      setScriptEditField(contextMenu.columnId!);
+                      setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+                  >
+                    <Code className="h-3.5 w-3.5" />
+                    Edit "{contextMenu.columnId}" with JavaScript ({selectedRows.size} rows)
+                  </button>
+                </>
               )}
               <div className="border-t my-1" />
             </>
