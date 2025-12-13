@@ -1,14 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ProfileSelector } from './components/ProfileSelector';
 import { TableList } from './components/TableList';
 import { BookmarksList } from './components/BookmarksList';
 import { TabBar } from './components/TabBar';
 import { TabContent } from './components/TabContent';
 import { UpdateNotifier } from './components/UpdateNotifier';
+import { ThemeSelector } from './components/ThemeSelector';
 import { useTabsStore } from './stores/tabs-store';
+import { useThemeStore } from './stores/theme-store';
 
 function App() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
+  const initializeTheme = useThemeStore((state) => state.initializeTheme);
+
   // Subscribe to both tabs and activeTabId to properly track active tab changes
   const activeTab = useTabsStore((state) =>
     state.activeTabId
@@ -16,19 +20,19 @@ function App() {
       : null
   );
 
-  // Initialize theme from system
+  // Initialize theme from store
   useEffect(() => {
-    window.dynomite.getSystemTheme().then(setTheme);
-
-    // Listen for theme changes
-    const unsubscribe = window.dynomite.onThemeChange(setTheme);
-    return unsubscribe;
-  }, []);
+    let cleanup: (() => void) | undefined;
+    initializeTheme().then((unsubscribe) => {
+      cleanup = unsubscribe;
+    });
+    return () => cleanup?.();
+  }, [initializeTheme]);
 
   // Apply theme to document
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
+    document.documentElement.classList.toggle('dark', resolvedTheme === 'dark');
+  }, [resolvedTheme]);
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -41,7 +45,8 @@ function App() {
           <h1 className="text-sm font-semibold">Dynomite</h1>
         </div>
 
-        <div className="w-20 flex justify-end no-drag">
+        <div className="flex justify-end no-drag items-center gap-2">
+          <ThemeSelector />
           <ProfileSelector />
         </div>
       </header>
