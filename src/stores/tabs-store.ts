@@ -132,12 +132,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   openTabInBackground: (tableName, tableInfo, profileName) => {
     const state = get();
 
-    // Check if tab with this table AND profile already exists
-    const existingTab = state.tabs.find(t => t.tableName === tableName && t.profileName === profileName);
-    if (existingTab) {
-      return; // Don't switch to it, just don't create duplicate
-    }
-
+    // Always create a new tab - user explicitly requested "Open in New Tab"
     const newTab: Tab = {
       id: generateTabId(),
       tableName,
