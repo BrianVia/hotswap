@@ -250,7 +250,7 @@ export function ScriptEditDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-popover border rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+      <div className="bg-popover border rounded-lg shadow-lg w-full max-w-5xl mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
           <h3 className="font-semibold">
@@ -302,7 +302,7 @@ export function ScriptEditDialog({
               className={cn(
                 'w-full px-3 py-2 rounded-md border bg-background text-sm font-mono',
                 'focus:outline-none focus:ring-2 focus:ring-ring',
-                'resize-y min-h-[120px]'
+                'resize-y min-h-[200px]'
               )}
             />
           </div>
@@ -324,7 +324,7 @@ export function ScriptEditDialog({
                   {preview.changedCount} changed, {preview.unchangedCount} unchanged
                 </div>
               </div>
-              <div className="border rounded-md overflow-hidden max-h-48 overflow-y-auto">
+              <div className="border rounded-md overflow-hidden max-h-72 overflow-y-auto">
                 <table className="w-full text-xs">
                   <thead className="bg-muted/50 sticky top-0">
                     <tr>
