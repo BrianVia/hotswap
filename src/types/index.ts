@@ -157,10 +157,10 @@ export interface SavedBookmark {
   scanForward: boolean;
 }
 
-// Declare the hotswap API on window
+// Declare the dynomite API on window
 declare global {
   interface Window {
-    hotswap: {
+    dynomite: {
       getProfiles: () => Promise<AwsProfile[]>;
       checkAuthStatus: (profileName: string) => Promise<AuthStatus>;
       loginWithSSO: (profileName: string) => Promise<{ success: boolean; error?: string }>;

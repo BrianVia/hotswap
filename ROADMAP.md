@@ -1,4 +1,4 @@
-# HotSwap Phase 2 Roadmap
+# Dynomite Phase 2 Roadmap
 
 Implementation approaches for remaining features.
 

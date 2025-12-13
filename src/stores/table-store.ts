@@ -35,7 +35,7 @@ export const useTableStore = create<TableState>()(
       loadTables: async (profileName) => {
         set({ isLoadingTables: true, error: null });
         try {
-          const tables = await window.hotswap.listTables(profileName);
+          const tables = await window.dynomite.listTables(profileName);
           set((state) => ({
             tablesByProfile: new Map(state.tablesByProfile).set(profileName, tables),
             isLoadingTables: false,
@@ -54,7 +54,7 @@ export const useTableStore = create<TableState>()(
       selectTable: async (profileName, tableName) => {
         set({ isLoadingTableInfo: true, error: null });
         try {
-          const tableInfo = await window.hotswap.describeTable(profileName, tableName);
+          const tableInfo = await window.dynomite.describeTable(profileName, tableName);
           set((state) => ({
             selectedTable: tableInfo,
             isLoadingTableInfo: false,
@@ -81,7 +81,7 @@ export const useTableStore = create<TableState>()(
       },
     }),
     {
-      name: 'hotswap-tables',
+      name: 'dynomite-tables',
       partialize: (state) => ({
         lastSelectedTableByProfile: state.lastSelectedTableByProfile,
       }),

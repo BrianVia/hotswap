@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { TableInfo, SkOperator, FilterCondition } from '../types';
 
 // Persist default maxResults to localStorage
-const STORAGE_KEY = 'hotswap:defaultMaxResults';
+const STORAGE_KEY = 'dynomite:defaultMaxResults';
 const DEFAULT_MAX_RESULTS = 1000;
 
 const getStoredMaxResults = (): number => {

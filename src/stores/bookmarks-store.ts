@@ -134,7 +134,7 @@ export const useBookmarksStore = create<BookmarksState>()(
       },
     }),
     {
-      name: 'hotswap-bookmarks',
+      name: 'dynomite-bookmarks',
       // Persist everything (bookmarks are small and important)
     }
   )

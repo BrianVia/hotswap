@@ -48,5 +48,5 @@ const api = {
 };
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
-contextBridge.exposeInMainWorld('hotswap', api);
+contextBridge.exposeInMainWorld('dynomite', api);
 //# sourceMappingURL=preload.js.map

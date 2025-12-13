@@ -1,4 +1,4 @@
-# HotSwap - DynamoDB Explorer for AWS SSO
+# Dynomite - DynamoDB Explorer for AWS SSO
 
 A local macOS Electron app for browsing and querying DynamoDB tables across multiple AWS SSO profiles.
 
@@ -45,7 +45,7 @@ npm run package:mac
 ## Architecture
 
 ```
-hotswap/
+dynomite/
 ├── electron/           # Main process (Node.js)
 │   ├── main.ts         # Electron entry point
 │   ├── preload.ts      # Context bridge (IPC)

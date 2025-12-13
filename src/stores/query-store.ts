@@ -107,7 +107,7 @@ export const useQueryStore = create<QueryState>((set, get) => ({
         };
       }
 
-      const result = await window.hotswap.queryTable(profileName, params);
+      const result = await window.dynomite.queryTable(profileName, params);
 
       set({
         results: result.items,
@@ -126,7 +126,7 @@ export const useQueryStore = create<QueryState>((set, get) => ({
     set({ isLoading: true, error: null, results: [], lastEvaluatedKey: undefined });
 
     try {
-      const result = await window.hotswap.scanTable(profileName, {
+      const result = await window.dynomite.scanTable(profileName, {
         tableName,
         indexName: state.selectedIndex || undefined,
         limit: state.limit,
@@ -179,7 +179,7 @@ export const useQueryStore = create<QueryState>((set, get) => ({
         };
       }
 
-      const result = await window.hotswap.queryTable(profileName, params);
+      const result = await window.dynomite.queryTable(profileName, params);
 
       set({
         results: [...state.results, ...result.items],

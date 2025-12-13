@@ -234,7 +234,7 @@ export function InsertRowDialog({
 
     setIsInserting(true);
     try {
-      const result = await window.hotswap.putItem(profileName, tableInfo.tableName, item);
+      const result = await window.dynomite.putItem(profileName, tableInfo.tableName, item);
       if (result.success) {
         onInserted();
         onClose();

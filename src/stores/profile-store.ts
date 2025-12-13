@@ -99,7 +99,7 @@ export const useProfileStore = create<ProfileState>()(
       loadProfiles: async () => {
         set({ isLoading: true, error: null });
         try {
-          const profiles = await window.hotswap.getProfiles();
+          const profiles = await window.dynomite.getProfiles();
           set({ profiles, isLoading: false });
         } catch (error) {
           set({ error: (error as Error).message, isLoading: false });
@@ -114,7 +114,7 @@ export const useProfileStore = create<ProfileState>()(
       },
 
       checkAuth: async (profileName) => {
-        const status = await window.hotswap.checkAuthStatus(profileName);
+        const status = await window.dynomite.checkAuthStatus(profileName);
         set((state) => ({
           authStatuses: new Map(state.authStatuses).set(profileName, status),
         }));
@@ -122,7 +122,7 @@ export const useProfileStore = create<ProfileState>()(
       },
 
       login: async (profileName) => {
-        const result = await window.hotswap.loginWithSSO(profileName);
+        const result = await window.dynomite.loginWithSSO(profileName);
         if (result.success) {
           // Re-check auth status after successful login
           await get().checkAuth(profileName);
@@ -210,7 +210,7 @@ export const useProfileStore = create<ProfileState>()(
       },
     }),
     {
-      name: 'hotswap-profiles',
+      name: 'dynomite-profiles',
       partialize: (state) => ({
         profileDisplayNames: state.profileDisplayNames,
         profileColors: state.profileColors,

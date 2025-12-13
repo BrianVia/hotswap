@@ -1,6 +1,6 @@
 # Apple Developer Setup for Code Signing
 
-This guide covers setting up macOS code signing and notarization for HotSwap releases.
+This guide covers setting up macOS code signing and notarization for Dynomite releases.
 
 ## Why Code Signing?
 
@@ -56,7 +56,7 @@ Apple requires notarization for apps distributed outside the App Store. This use
 2. Sign in with your Apple ID
 3. Under "Sign-In and Security", find **App-Specific Passwords**
 4. Click "Generate an app-specific password"
-5. Name it something like "HotSwap Notarization"
+5. Name it something like "Dynomite Notarization"
 6. Copy the generated password (you won't see it again)
 
 ## Step 5: Find Your Team ID
@@ -103,13 +103,13 @@ After a release build:
 1. Download the DMG from GitHub releases
 2. Mount and drag app to Applications
 3. The app should open without Gatekeeper warnings
-4. Verify signing: `codesign -dv --verbose=4 /Applications/HotSwap.app`
-5. Verify notarization: `spctl -a -v /Applications/HotSwap.app`
+4. Verify signing: `codesign -dv --verbose=4 /Applications/Dynomite.app`
+5. Verify notarization: `spctl -a -v /Applications/Dynomite.app`
 
 ## Troubleshooting
 
 ### "App is damaged" error
-- Run `xattr -cr /Applications/HotSwap.app` to remove quarantine (workaround)
+- Run `xattr -cr /Applications/Dynomite.app` to remove quarantine (workaround)
 - Check that all secrets are correctly configured
 
 ### Notarization fails

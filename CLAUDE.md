@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-HotSwap is a macOS Electron app for browsing and querying DynamoDB tables across multiple AWS SSO profiles. It uses React 19, TypeScript, Vite, Tailwind CSS 4, and Zustand for state management.
+Dynomite is a macOS Electron app for browsing and querying DynamoDB tables across multiple AWS SSO profiles. It uses React 19, TypeScript, Vite, Tailwind CSS 4, and Zustand for state management.
 
 ## Commands
 
@@ -20,11 +20,11 @@ npm run lint             # ESLint
 
 ### Process Separation
 - **Main Process** (`electron/`): Handles all AWS SDK operations, credentials, and system APIs. Credentials never touch the renderer.
-- **Renderer Process** (`src/`): React UI. Communicates with main via IPC through the `window.hotswap` API.
-- **Preload** (`electron/preload.ts`): Context bridge exposing `window.hotswap` API to renderer.
+- **Renderer Process** (`src/`): React UI. Communicates with main via IPC through the `window.dynomite` API.
+- **Preload** (`electron/preload.ts`): Context bridge exposing `window.dynomite` API to renderer.
 
 ### Key Data Flow
-1. Renderer calls `window.hotswap.queryTable(...)`
+1. Renderer calls `window.dynomite.queryTable(...)`
 2. Preload forwards via `ipcRenderer.invoke('dynamo:query', ...)`
 3. Main process handler in `electron/ipc/handlers.ts` executes with AWS SDK
 4. Results returned through IPC
@@ -41,7 +41,7 @@ npm run lint             # ESLint
 - `TableList.tsx`: Table browser with search
 - `dialogs/`: EditRowDialog, BulkEditDialog, FieldPickerDialog, ExportDialog
 
-### IPC API (`window.hotswap`)
+### IPC API (`window.dynomite`)
 - Profile/Auth: `getProfiles()`, `checkAuthStatus()`, `loginWithSSO()`
 - DynamoDB Read: `queryTable()`, `scanTable()`, `queryTableBatch()`, `scanTableBatch()`
 - DynamoDB Write: `putItem()`, `updateItem()`, `deleteItem()`, `batchWrite()`
@@ -51,7 +51,7 @@ npm run lint             # ESLint
 
 Types are defined in two places:
 - `electron/types.ts`: Main process types (used by IPC handlers)
-- `src/types/index.ts`: Renderer types (re-exports + declares `window.hotswap`)
+- `src/types/index.ts`: Renderer types (re-exports + declares `window.dynomite`)
 
 When adding IPC methods: update both `electron/preload.ts` (implementation) and `src/types/index.ts` (declaration).
 

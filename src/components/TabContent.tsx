@@ -557,7 +557,7 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
     let accumulatedItems: Record<string, unknown>[] = [];
 
     // Listen for progress updates from backend - stream items as they arrive
-    const unsubscribe = window.hotswap.onQueryProgress((progress) => {
+    const unsubscribe = window.dynomite.onQueryProgress((progress) => {
       if (progress.items && progress.items.length > 0) {
         accumulatedItems = [...accumulatedItems, ...progress.items];
       }
@@ -592,7 +592,7 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
         };
       }
 
-      const result = await window.hotswap.queryTableBatch(profileName, params, queryState.maxResults);
+      const result = await window.dynomite.queryTableBatch(profileName, params, queryState.maxResults);
 
       // Final update with complete results (in case any items weren't sent via progress)
       updateTabQueryState(tab.id, {
@@ -635,7 +635,7 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
     let accumulatedItems: Record<string, unknown>[] = [];
 
     // Listen for progress updates from backend - stream items as they arrive
-    const unsubscribe = window.hotswap.onQueryProgress((progress) => {
+    const unsubscribe = window.dynomite.onQueryProgress((progress) => {
       if (progress.items && progress.items.length > 0) {
         accumulatedItems = [...accumulatedItems, ...progress.items];
       }
@@ -650,7 +650,7 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
     });
 
     try {
-      const result = await window.hotswap.scanTableBatch(profileName, {
+      const result = await window.dynomite.scanTableBatch(profileName, {
         tableName: tableInfo.tableName,
         indexName: queryState.selectedIndex || undefined,
         filters: validFilters.length > 0 ? validFilters : undefined,
@@ -1463,7 +1463,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
           });
         } else if (change.type === 'update' && change.field) {
           // For updates, we need to send just the field update
-          await window.hotswap.updateItem(
+          await window.dynomite.updateItem(
             selectedProfile.name,
             tableInfo.tableName,
             change.primaryKey,
@@ -1474,7 +1474,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
 
       // Execute batch operations (deletes and pk-changes)
       if (operations.length > 0) {
-        await window.hotswap.batchWrite(selectedProfile.name, operations);
+        await window.dynomite.batchWrite(selectedProfile.name, operations);
       }
 
       // Clear pending changes and refresh
@@ -2090,7 +2090,7 @@ export function TabContent() {
     let accumulatedItems: Record<string, unknown>[] = [...existingResults];
 
     // Listen for progress updates from backend - stream items as they arrive
-    const unsubscribe = window.hotswap.onQueryProgress((progress) => {
+    const unsubscribe = window.dynomite.onQueryProgress((progress) => {
       if (progress.items && progress.items.length > 0) {
         accumulatedItems = [...accumulatedItems, ...progress.items];
       }
@@ -2126,7 +2126,7 @@ export function TabContent() {
           };
         }
 
-        const result = await window.hotswap.queryTableBatch(activeTab.profileName, params, queryState.maxResults);
+        const result = await window.dynomite.queryTableBatch(activeTab.profileName, params, queryState.maxResults);
 
         // Final update with complete results
         updateTabQueryState(activeTab.id, {
@@ -2138,7 +2138,7 @@ export function TabContent() {
           queryElapsedMs: Date.now() - startTime,
         });
       } else {
-        const result = await window.hotswap.scanTableBatch(activeTab.profileName, {
+        const result = await window.dynomite.scanTableBatch(activeTab.profileName, {
           tableName: tableInfo.tableName,
           indexName: queryState.selectedIndex || undefined,
           filters: validFilters.length > 0 ? validFilters : undefined,
@@ -2189,7 +2189,7 @@ export function TabContent() {
         let accumulatedItems: Record<string, unknown>[] = [];
 
         // Listen for progress updates from backend - stream items as they arrive
-        const unsubscribe = window.hotswap.onQueryProgress((progress) => {
+        const unsubscribe = window.dynomite.onQueryProgress((progress) => {
           if (progress.items && progress.items.length > 0) {
             accumulatedItems = [...accumulatedItems, ...progress.items];
           }
@@ -2204,7 +2204,7 @@ export function TabContent() {
         });
 
         try {
-          const result = await window.hotswap.scanTableBatch(activeTab.profileName, {
+          const result = await window.dynomite.scanTableBatch(activeTab.profileName, {
             tableName: activeTab.tableInfo!.tableName,
           }, INITIAL_SCAN_LIMIT);
 

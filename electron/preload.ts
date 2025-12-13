@@ -14,7 +14,7 @@ export type UpdateStatus =
 // Type declaration for the renderer
 declare global {
   interface Window {
-    hotswap: typeof api;
+    dynomite: typeof api;
   }
 }
 
@@ -115,6 +115,6 @@ const api = {
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
-contextBridge.exposeInMainWorld('hotswap', api);
+contextBridge.exposeInMainWorld('dynomite', api);
 
-export type HotswapAPI = typeof api;
+export type DynomiteAPI = typeof api;

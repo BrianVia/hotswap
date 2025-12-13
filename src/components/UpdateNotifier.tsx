@@ -9,11 +9,11 @@ export function UpdateNotifier() {
 
   useEffect(() => {
     // Get initial status and app version
-    window.hotswap.getUpdateStatus().then(setStatus);
-    window.hotswap.getAppVersion().then(setAppVersion);
+    window.dynomite.getUpdateStatus().then(setStatus);
+    window.dynomite.getAppVersion().then(setAppVersion);
 
     // Subscribe to status changes
-    const unsubscribe = window.hotswap.onUpdateStatusChange((newStatus) => {
+    const unsubscribe = window.dynomite.onUpdateStatusChange((newStatus) => {
       setStatus(newStatus);
       // Reset dismissed when new update becomes available
       if (newStatus.state === 'downloaded') {
@@ -25,7 +25,7 @@ export function UpdateNotifier() {
   }, []);
 
   const handleRestart = () => {
-    window.hotswap.quitAndInstall();
+    window.dynomite.quitAndInstall();
   };
 
   const handleDismiss = () => {

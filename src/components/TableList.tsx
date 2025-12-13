@@ -94,7 +94,7 @@ export function TableList() {
   const handleTableClick = async (tableName: string) => {
     if (!profileName) return;
     // Regular click opens in current/new active tab
-    const tableInfo = await window.hotswap.describeTable(profileName, tableName);
+    const tableInfo = await window.dynomite.describeTable(profileName, tableName);
     openTab(tableName, tableInfo, profileName);
     selectTable(profileName, tableName);
   };
@@ -111,14 +111,14 @@ export function TableList() {
 
   const handleOpenInNewTab = async () => {
     if (!contextMenu.tableName || !profileName) return;
-    const tableInfo = await window.hotswap.describeTable(profileName, contextMenu.tableName);
+    const tableInfo = await window.dynomite.describeTable(profileName, contextMenu.tableName);
     openTabInBackground(contextMenu.tableName, tableInfo, profileName);
     setContextMenu({ visible: false, x: 0, y: 0, tableName: null });
   };
 
   const handleOpenInCurrentTab = async () => {
     if (!contextMenu.tableName || !profileName) return;
-    const tableInfo = await window.hotswap.describeTable(profileName, contextMenu.tableName);
+    const tableInfo = await window.dynomite.describeTable(profileName, contextMenu.tableName);
     openTab(contextMenu.tableName, tableInfo, profileName);
     selectTable(profileName, contextMenu.tableName);
     setContextMenu({ visible: false, x: 0, y: 0, tableName: null });

@@ -18,10 +18,10 @@ function App() {
 
   // Initialize theme from system
   useEffect(() => {
-    window.hotswap.getSystemTheme().then(setTheme);
+    window.dynomite.getSystemTheme().then(setTheme);
 
     // Listen for theme changes
-    const unsubscribe = window.hotswap.onThemeChange(setTheme);
+    const unsubscribe = window.dynomite.onThemeChange(setTheme);
     return unsubscribe;
   }, []);
 
@@ -38,7 +38,7 @@ function App() {
         <div className="w-20 shrink-0" />
 
         <div className="flex-1 flex items-center justify-center">
-          <h1 className="text-sm font-semibold">HotSwap</h1>
+          <h1 className="text-sm font-semibold">Dynomite</h1>
         </div>
 
         <div className="w-20 flex justify-end no-drag">

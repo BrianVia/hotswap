@@ -1,11 +1,11 @@
 {
-  "name": "hotswap",
-  "productName": "HotSwap",
+  "name": "dynomite",
+  "productName": "Dynomite",
   "version": "1.2.0",
   "description": "DynamoDB Explorer for AWS SSO profiles",
   "repository": {
     "type": "git",
-    "url": "https://github.com/BrianVia/hotswap.git"
+    "url": "https://github.com/BrianVia/dynomite.git"
   },
   "license": "MIT",
   "type": "module",
@@ -67,13 +67,13 @@
     "wait-on": "^9.0.3"
   },
   "build": {
-    "appId": "com.hotswap.app",
-    "productName": "HotSwap",
+    "appId": "com.dynomite.app",
+    "productName": "Dynomite",
     "icon": "assets/app-icon-macos.png",
     "publish": {
       "provider": "github",
       "owner": "BrianVia",
-      "repo": "hotswap",
+      "repo": "dynomite",
       "releaseType": "release"
     },
     "directories": {
