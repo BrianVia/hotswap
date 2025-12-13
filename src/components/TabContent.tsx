@@ -30,6 +30,7 @@ import {
   Filter,
   FastForward,
   AlertCircle,
+  AlertTriangle,
   Trash2,
   Pencil,
   Save,
@@ -51,7 +52,7 @@ import { JsonEditorDialog } from './dialogs/JsonEditorDialog';
 import { SaveBookmarkDialog } from './dialogs/SaveBookmarkDialog';
 import { InsertRowDialog } from './dialogs/InsertRowDialog';
 import { useTabsStore, type Tab } from '@/stores/tabs-store';
-import { useProfileStore } from '@/stores/profile-store';
+import { useProfileStore, getProfileEnvironment } from '@/stores/profile-store';
 import { usePendingChangesStore, type PendingChange } from '@/stores/pending-changes-store';
 import { cn } from '@/lib/utils';
 import type { TableInfo, SkOperator, QueryParams, FilterOperator, FilterCondition, BatchWriteOperation } from '@/types';
@@ -1112,6 +1113,8 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
     changeCount,
   } = usePendingChangesStore();
   const queryState = tab.queryState;
+  const profileEnvironment = getProfileEnvironment(tab.profileName);
+  const isProduction = profileEnvironment === 'prod';
   const parentRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
@@ -1964,6 +1967,17 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-popover border rounded-lg shadow-lg p-4 max-w-md w-full mx-4">
             <h3 className="font-semibold text-lg mb-3">Apply {pendingCount} Changes?</h3>
+            {isProduction && (
+              <div className="p-3 rounded-md bg-red-500/20 border border-red-500/50 mb-4">
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-semibold">
+                  <AlertTriangle className="h-5 w-5" />
+                  PRODUCTION ENVIRONMENT
+                </div>
+                <p className="text-sm text-red-600/80 dark:text-red-400/80 mt-1">
+                  You are about to modify data in a production account.
+                </p>
+              </div>
+            )}
             <div className="space-y-1 text-sm text-muted-foreground mb-4">
               {changeSummary.updates > 0 && (
                 <div className="flex items-center gap-2">
@@ -1998,6 +2012,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
               </Button>
               <Button
                 size="sm"
+                variant={isProduction ? "destructive" : "default"}
                 onClick={handleApplyChanges}
                 disabled={isSaving}
               >
@@ -2006,6 +2021,8 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
                     <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
                     Applying...
                   </>
+                ) : isProduction ? (
+                  `Apply ${pendingCount} Changes to PROD`
                 ) : (
                   'Apply Changes'
                 )}
