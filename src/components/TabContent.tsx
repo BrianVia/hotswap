@@ -1870,7 +1870,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
                 >
                   <Code className="h-3.5 w-3.5" />
-                  Edit "{contextMenu.columnId}" with JavaScript
+                  Edit "{contextMenu.columnId}" with JavaScript ({selectedRows.size} rows)
                 </button>
               )}
               <div className="border-t my-1" />
