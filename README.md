@@ -113,7 +113,7 @@ This enables bookmarks and future "Open in Profile B" functionality to find equi
 See [ROADMAP.md](./ROADMAP.md) for planned features including:
 
 - **Post-Query IN Filter**: Client-side filtering for `attribute IN [value1, value2, ...]`
-- **Environment Switcher**: "Open in pegasus-3" button to run the same query in another profile
+- **Environment Switcher**: "Open in DEV/TEST/PROD" button to run the same query in another profile
 - **Query Suggestions**: Parse README/docs to suggest likely queries based on data model
 
 ## Tech Stack
