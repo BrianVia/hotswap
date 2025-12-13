@@ -2,6 +2,9 @@
 
 A macOS Electron app for browsing and querying DynamoDB tables across multiple AWS SSO profiles.
 
+<img width="2000" height="1232" alt="image" src="https://github.com/user-attachments/assets/bab4f719-04df-44c3-a4d2-8fb8b207175d" />
+
+
 ## Features
 
 ### Profile & Authentication
