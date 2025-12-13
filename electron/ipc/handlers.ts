@@ -216,10 +216,11 @@ export function registerIpcHandlers(): void {
       }
 
       // Send final progress with any remaining items and completion signal
+      const elapsedMs = Date.now() - startTime;
       const finalProgress: QueryProgress = {
         count: allItems.length,
         scannedCount: totalScanned,
-        elapsedMs: Date.now() - startTime,
+        elapsedMs,
         items: pendingItems,
         isComplete: true,
       };
@@ -230,7 +231,7 @@ export function registerIpcHandlers(): void {
         lastEvaluatedKey: lastKey,
         count: totalCount,
         scannedCount: totalScanned,
-        elapsedMs: Date.now() - startTime,
+        elapsedMs,
       };
     } catch (error) {
       console.error('Batch query failed:', error);
@@ -279,10 +280,11 @@ export function registerIpcHandlers(): void {
       }
 
       // Send final progress with any remaining items and completion signal
+      const elapsedMs = Date.now() - startTime;
       const finalProgress: QueryProgress = {
         count: allItems.length,
         scannedCount: totalScanned,
-        elapsedMs: Date.now() - startTime,
+        elapsedMs,
         items: pendingItems,
         isComplete: true,
       };
@@ -293,7 +295,7 @@ export function registerIpcHandlers(): void {
         lastEvaluatedKey: lastKey,
         count: totalCount,
         scannedCount: totalScanned,
-        elapsedMs: Date.now() - startTime,
+        elapsedMs,
       };
     } catch (error) {
       console.error('Batch scan failed:', error);

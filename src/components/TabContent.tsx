@@ -2045,7 +2045,8 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
     prevQ.scannedCount === nextQ.scannedCount &&
     prevQ.lastEvaluatedKey === nextQ.lastEvaluatedKey &&
     prevQ.selectedIndex === nextQ.selectedIndex &&
-    prevQ.scanForward === nextQ.scanForward
+    prevQ.scanForward === nextQ.scanForward &&
+    prevQ.maxResults === nextQ.maxResults
   );
 });
 

@@ -50,6 +50,18 @@ A macOS Electron app for browsing and querying DynamoDB tables across multiple A
 - **Dark/Light Mode**: Follows system preference
 - **Auto-Updates**: Automatic update notifications and installation
 
+## Performance
+
+Dynomite auto-paginates through DynamoDB results with streaming progress updates.
+
+| Records | Time | Throughput |
+|--------:|-----:|-----------:|
+| ~250 | <100ms | ~2,500 items/sec |
+| ~12,000 | ~2-3s | ~4,500 items/sec |
+| ~100,000 | ~10s | ~9,500 items/sec |
+
+*Benchmarks from querying production DynamoDB tables over network.*
+
 ## Prerequisites
 
 - Node.js 18+
