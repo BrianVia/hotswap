@@ -44,6 +44,7 @@ import {
 import { Button } from './ui/button';
 import { EditRowDialog } from './dialogs/EditRowDialog';
 import { BulkEditDialog } from './dialogs/BulkEditDialog';
+import { ScriptEditDialog } from './dialogs/ScriptEditDialog';
 import { FieldPickerDialog } from './dialogs/FieldPickerDialog';
 import { ExportDialog } from './dialogs/ExportDialog';
 import { JsonEditorDialog } from './dialogs/JsonEditorDialog';
@@ -1131,6 +1132,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
   const [editingRow, setEditingRow] = useState<number | null>(null);
   const [jsonEditingRow, setJsonEditingRow] = useState<number | null>(null);
   const [bulkEditField, setBulkEditField] = useState<string | null>(null);
+  const [scriptEditField, setScriptEditField] = useState<string | null>(null);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [showFieldPicker, setShowFieldPicker] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -1858,6 +1860,19 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
                   ))}
                 </div>
               </div>
+              {/* JavaScript edit option - only if right-clicked on a specific column */}
+              {contextMenu.columnId && (
+                <button
+                  onClick={() => {
+                    setScriptEditField(contextMenu.columnId!);
+                    setContextMenu({ visible: false, x: 0, y: 0, rowIndex: null });
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-accent transition-colors"
+                >
+                  <Code className="h-3.5 w-3.5" />
+                  Edit "{contextMenu.columnId}" with JavaScript
+                </button>
+              )}
               <div className="border-t my-1" />
             </>
           )}
@@ -2018,6 +2033,19 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
           isOpen={bulkEditField !== null}
           onClose={() => setBulkEditField(null)}
           fieldName={bulkEditField}
+          selectedRows={Array.from(selectedRows)}
+          results={queryState.results}
+          tabId={tab.id}
+          tableInfo={tableInfo}
+        />
+      )}
+
+      {/* Script Edit Dialog */}
+      {scriptEditField !== null && (
+        <ScriptEditDialog
+          isOpen={scriptEditField !== null}
+          onClose={() => setScriptEditField(null)}
+          fieldName={scriptEditField}
           selectedRows={Array.from(selectedRows)}
           results={queryState.results}
           tabId={tab.id}
