@@ -68,10 +68,14 @@ function executeScript(
   rows: Record<string, unknown>[]
 ): { results: unknown[] | null; error: string | null } {
   try {
-    // Wrap user script in a function
+    // Check if script already has a return statement at the start
+    const trimmedScript = script.trim();
+    const needsReturn = !trimmedScript.startsWith('return ') && !trimmedScript.startsWith('return\n');
+
+    // Wrap user script in a function, adding return if needed
     const wrappedScript = `
       return (function(values, rows) {
-        ${script}
+        ${needsReturn ? 'return ' : ''}${script}
       })(values, rows);
     `;
 
