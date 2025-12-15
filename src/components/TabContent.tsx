@@ -52,7 +52,7 @@ import { JsonEditorDialog } from './dialogs/JsonEditorDialog';
 import { SaveBookmarkDialog } from './dialogs/SaveBookmarkDialog';
 import { InsertRowDialog } from './dialogs/InsertRowDialog';
 import { useTabsStore, type Tab } from '@/stores/tabs-store';
-import { useProfileStore, getProfileEnvironment } from '@/stores/profile-store';
+import { useProfileStore } from '@/stores/profile-store';
 import { usePendingChangesStore, type PendingChange } from '@/stores/pending-changes-store';
 import { cn } from '@/lib/utils';
 import type { TableInfo, SkOperator, QueryParams, FilterOperator, FilterCondition, BatchWriteOperation } from '@/types';
@@ -1104,7 +1104,7 @@ interface ContextMenuState {
 
 const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchMore, onCancel }: TabResultsTableProps) {
   const { updateTabQueryState } = useTabsStore();
-  const { selectedProfile } = useProfileStore();
+  const { selectedProfile, getProfileEnvironment } = useProfileStore();
   const {
     getChangesForTab,
     addChange,

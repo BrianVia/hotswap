@@ -45,7 +45,7 @@ function App() {
           <h1 className="text-sm font-semibold">Dynomite</h1>
         </div>
 
-        <div className="flex justify-end no-drag items-center gap-2">
+        <div className="flex justify-end no-drag items-center gap-3 mr-2">
           <ThemeSelector />
           <ProfileSelector />
         </div>

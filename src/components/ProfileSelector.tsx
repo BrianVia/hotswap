@@ -181,8 +181,8 @@ export function ProfileSelector() {
           />
 
           {/* Dropdown */}
-          <div className="absolute top-full left-0 z-20 mt-1 w-[420px] rounded-md border bg-popover shadow-lg">
-            <div className="px-3 py-2 border-b flex items-center justify-between">
+          <div className="absolute top-full right-0 z-20 mt-1 w-[500px] rounded-md border bg-popover shadow-lg p-2">
+            <div className="px-3 py-2.5 border-b flex items-center justify-between rounded-t-sm">
               <div className="text-xs text-muted-foreground">
                 Click <Pencil className="h-3 w-3 inline" /> to customize name, color & environment
               </div>
@@ -199,7 +199,7 @@ export function ProfileSelector() {
                 </button>
               )}
             </div>
-            <div className="max-h-96 overflow-y-auto p-1">
+            <div className="max-h-96 overflow-y-auto p-1 space-y-1">
               {profiles.length === 0 ? (
                 <div className="px-3 py-2 text-sm text-muted-foreground">
                   No profiles found in ~/.aws/config
@@ -221,19 +221,19 @@ export function ProfileSelector() {
                       key={profile.name}
                       onClick={() => handleSelectProfile(profile)}
                       className={cn(
-                        'group flex items-center justify-between rounded-sm px-3 py-2 text-sm cursor-pointer transition-colors',
+                        'group flex items-center justify-between rounded-md px-4 py-3 text-sm cursor-pointer transition-colors',
                         isSelected
                           ? 'bg-accent text-accent-foreground'
                           : 'hover:bg-accent/50',
                         isEditing && 'cursor-default'
                       )}
                     >
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         {isSelected && <Check className="h-4 w-4 shrink-0" />}
                         {!isSelected && <div className="w-4" />}
 
                         <div className="min-w-0 flex-1">
-                          <div className="inline-flex items-center gap-1">
+                          <div className="inline-flex items-center gap-2">
                             {isEditing ? (
                               <div className="flex flex-col gap-1.5">
                                 <div className="flex items-center gap-1">
@@ -361,14 +361,14 @@ export function ProfileSelector() {
                               </>
                             )}
                           </div>
-                          <div className="font-medium truncate mt-1">{profile.name}</div>
+                          <div className="font-medium truncate mt-1.5">{profile.name}</div>
                           <div className="text-xs text-muted-foreground truncate">
                             {profile.sso_account_id} · {profile.region}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 ml-2">
+                      <div className="flex items-center gap-3 ml-3">
                         {auth?.authenticated ? (
                           <ShieldCheck className="h-4 w-4 text-green-500" />
                         ) : (
@@ -397,8 +397,8 @@ export function ProfileSelector() {
                 {/* Disabled profiles section */}
                 {showDisabled && profiles.filter((p) => isProfileDisabled(p.name)).length > 0 && (
                   <>
-                    <div className="border-t my-2 mx-2" />
-                    <div className="px-3 py-1 text-xs text-muted-foreground">
+                    <div className="border-t my-3 mx-3" />
+                    <div className="px-4 py-1.5 text-xs text-muted-foreground">
                       Disabled profiles
                     </div>
                     {profiles.filter((p) => isProfileDisabled(p.name)).map((profile) => {
@@ -408,12 +408,12 @@ export function ProfileSelector() {
                       return (
                         <div
                           key={profile.name}
-                          className="group flex items-center justify-between rounded-sm px-3 py-2 text-sm opacity-50"
+                          className="group flex items-center justify-between rounded-md px-4 py-3 text-sm opacity-50"
                         >
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
                             <div className="w-4" />
                             <div className="min-w-0 flex-1">
-                              <div className="inline-flex items-center gap-1">
+                              <div className="inline-flex items-center gap-2">
                                 <span className={cn(
                                   'text-xs font-semibold px-1.5 py-0.5 rounded',
                                   PROFILE_COLORS.find(c => c.value === getProfileColor(profile.name))?.classes
@@ -432,7 +432,7 @@ export function ProfileSelector() {
                                   </span>
                                 )}
                               </div>
-                              <div className="font-medium truncate mt-1 line-through">{profile.name}</div>
+                              <div className="font-medium truncate mt-1.5 line-through">{profile.name}</div>
                             </div>
                           </div>
                           <button
