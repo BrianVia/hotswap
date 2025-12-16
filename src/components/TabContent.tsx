@@ -1185,8 +1185,9 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
       if (e.key === 'Escape') {
         setSelectedRows(new Set());
       }
-      // Cmd+A / Ctrl+A to select all
-      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && document.activeElement?.tagName !== 'INPUT') {
+      // Cmd+A / Ctrl+A to select all (but not when in input/textarea)
+      const activeTag = document.activeElement?.tagName;
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a' && activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
         e.preventDefault();
         setSelectedRows(new Set(queryState.results.map((_, i) => i)));
       }
