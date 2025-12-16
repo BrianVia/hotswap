@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.4.0](https://github.com/BrianVia/dynomite/compare/v1.3.0...v1.4.0) (2025-12-16)
+
+
+### Features
+
+* add JavaScript bulk edit for transforming field values ([f8caa08](https://github.com/BrianVia/dynomite/commit/f8caa08540de3deb4edc2ea2de934fa4af346554))
+* add production environment warning to confirmation dialog ([16b4fca](https://github.com/BrianVia/dynomite/commit/16b4fcac9b7ad2fc07fb4eea99fe8e0c3b07e429))
+* add query cancellation support ([8cb825e](https://github.com/BrianVia/dynomite/commit/8cb825e5211bd85fdcb99704fb3db11738b8f766))
+* add quick "Set to value" option in bulk edit context menu ([671ac5a](https://github.com/BrianVia/dynomite/commit/671ac5a5c18c849387918b69c285e6b7cca93ffd))
+* add theme selector UI ([8604baf](https://github.com/BrianVia/dynomite/commit/8604baf07c39ee87f7c686deb805976a6a81268c))
+
+
+### Bug Fixes
+
+* auto-add return statement for expression scripts ([3938429](https://github.com/BrianVia/dynomite/commit/3938429c9812aaa8ca6b4bea5738d77bc0186fe3))
+* improve profile selector spacing and dropdown positioning ([8ce9c7a](https://github.com/BrianVia/dynomite/commit/8ce9c7a8ee0378fcafd6f54be06a9138c31d5936))
+* include maxResults in TabResultsTable memo comparison ([4028846](https://github.com/BrianVia/dynomite/commit/4028846f018f04cce170ded8212b389bbdef4cde))
+* prevent Cmd+A from selecting rows when in textarea ([d33a720](https://github.com/BrianVia/dynomite/commit/d33a7208063550b215f3950022144806cf18c58c))
+* show row count in JavaScript edit menu item ([c6a95db](https://github.com/BrianVia/dynomite/commit/c6a95db5bacf278a39362410d3f9328d3ef70e7e))
+
+
+### Performance Improvements
+
+* optimize tab switching for large result sets ([37f4803](https://github.com/BrianVia/dynomite/commit/37f4803d5332bd272304f65ad80639c2a50b6ccd))
+
 ## [1.3.0](https://github.com/BrianVia/dynomite/compare/v1.2.0...v1.3.0) (2025-12-13)
 
 
