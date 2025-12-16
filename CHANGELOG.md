@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/BrianVia/dynomite/compare/v1.4.0...v1.4.1) (2025-12-16)
+
+
+### Bug Fixes
+
+* remove unused variables breaking CI build ([b2a4526](https://github.com/BrianVia/dynomite/commit/b2a45263e3f5bcde4ff95cfd515ef61cb7f5e4f1))
+
 ## [1.4.0](https://github.com/BrianVia/dynomite/compare/v1.3.0...v1.4.0) (2025-12-16)
 
 
