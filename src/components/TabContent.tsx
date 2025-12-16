@@ -698,17 +698,6 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
     }
   };
 
-  const handleCancel = async () => {
-    if (queryState.currentQueryId) {
-      await window.dynomite.cancelQuery(queryState.currentQueryId);
-      updateTabQueryState(tab.id, {
-        isLoading: false,
-        isFetchingMore: false,
-        currentQueryId: undefined,
-      });
-    }
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && localPkValue.trim()) {
       e.preventDefault();
@@ -1139,7 +1128,6 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [showFieldPicker, setShowFieldPicker] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showSaveBookmarkDialog, setShowSaveBookmarkDialog] = useState(false);
   const [showInsertDialog, setShowInsertDialog] = useState(false);
 
   // Get PK and SK attribute names
