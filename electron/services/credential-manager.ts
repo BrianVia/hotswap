@@ -53,52 +53,77 @@ export function clearCredentialProvider(profileName: string): void {
 }
 
 /**
+ * Get extended PATH that includes common CLI installation locations
+ * Packaged Electron apps on macOS don't inherit the user's shell PATH
+ */
+function getExtendedPath(): string {
+  const home = homedir();
+  const additionalPaths = [
+    '/usr/local/bin',           // Homebrew on Intel Macs
+    '/opt/homebrew/bin',        // Homebrew on Apple Silicon
+    `${home}/.local/bin`,       // pip install --user
+    '/usr/local/sbin',
+    '/opt/homebrew/sbin',
+  ];
+
+  const currentPath = process.env.PATH || '/usr/bin:/bin:/usr/sbin:/sbin';
+  return [...additionalPaths, currentPath].join(':');
+}
+
+/**
  * Trigger SSO login via AWS CLI
  * This opens the browser for the user to authenticate
  */
 export async function loginWithSSO(profileName: string): Promise<{ success: boolean; error?: string }> {
   return new Promise((resolve) => {
     console.log(`Starting SSO login for profile: ${profileName}`);
-    
+
+    // Extend PATH to include common CLI locations (packaged apps have limited PATH)
+    const extendedEnv = {
+      ...process.env,
+      PATH: getExtendedPath(),
+    };
+
     // Note: shell: false to prevent command injection via malicious profile names
-    const process = spawn('aws', ['sso', 'login', '--profile', profileName], {
+    const child = spawn('aws', ['sso', 'login', '--profile', profileName], {
       stdio: ['inherit', 'pipe', 'pipe'],
+      env: extendedEnv,
     });
 
     let stdout = '';
     let stderr = '';
 
-    process.stdout?.on('data', (data) => {
+    child.stdout?.on('data', (data) => {
       stdout += data.toString();
       console.log('SSO stdout:', data.toString());
     });
 
-    process.stderr?.on('data', (data) => {
+    child.stderr?.on('data', (data) => {
       stderr += data.toString();
       console.log('SSO stderr:', data.toString());
     });
 
-    process.on('close', (code) => {
+    child.on('close', (code) => {
       // Clear cached provider to force re-fetch after login
       clearCredentialProvider(profileName);
-      
+
       if (code === 0) {
         console.log('SSO login successful');
         resolve({ success: true });
       } else {
         console.error('SSO login failed:', stderr);
-        resolve({ 
-          success: false, 
-          error: stderr || `AWS CLI exited with code ${code}` 
+        resolve({
+          success: false,
+          error: stderr || `AWS CLI exited with code ${code}`,
         });
       }
     });
 
-    process.on('error', (error) => {
+    child.on('error', (error) => {
       console.error('SSO login error:', error);
-      resolve({ 
-        success: false, 
-        error: `Failed to start AWS CLI: ${error.message}` 
+      resolve({
+        success: false,
+        error: `Failed to start AWS CLI: ${error.message}. Make sure AWS CLI is installed.`,
       });
     });
   });
