@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/BrianVia/dynomite/compare/v1.4.1...v1.5.0) (2025-12-17)
+
+
+### Features
+
+* add resizable sidebar ([4c917d9](https://github.com/BrianVia/dynomite/commit/4c917d97de91e8aee6e15fb467868673cc9b60e1))
+
+
+### Bug Fixes
+
+* extend PATH for AWS CLI in packaged app ([4d02792](https://github.com/BrianVia/dynomite/commit/4d02792d848493796d2dd992bfb2aab3b224e190))
+
 ## [1.4.1](https://github.com/BrianVia/dynomite/compare/v1.4.0...v1.4.1) (2025-12-16)
 
 
