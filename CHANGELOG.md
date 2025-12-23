@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/BrianVia/dynomite/compare/v1.5.0...v1.5.1) (2025-12-23)
+
+
+### Bug Fixes
+
+* preserve query results after saving table changes ([782094c](https://github.com/BrianVia/dynomite/commit/782094c45212c1982df7ad2f0ddd06be27826363))
+
 ## [1.5.0](https://github.com/BrianVia/dynomite/compare/v1.4.1...v1.5.0) (2025-12-17)
 
 
