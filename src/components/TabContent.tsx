@@ -1504,23 +1504,52 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
         await window.dynomite.batchWrite(selectedProfile.name, operations);
       }
 
-      // Clear pending changes and refresh
+      // Apply changes locally to results instead of clearing them
+      // This keeps the data in sync without needing a re-query
+      let updatedResults = [...queryState.results];
+
+      // First, apply updates and pk-changes (don't change array length)
+      for (const change of changes) {
+        if (change.type === 'update' && change.field !== undefined) {
+          if (updatedResults[change.rowIndex]) {
+            updatedResults[change.rowIndex] = {
+              ...updatedResults[change.rowIndex],
+              [change.field]: change.newValue,
+            };
+          }
+        } else if (change.type === 'pk-change' && change.newItem) {
+          if (updatedResults[change.rowIndex]) {
+            updatedResults[change.rowIndex] = change.newItem;
+          }
+        }
+      }
+
+      // Then apply deletes in reverse order to avoid index shifting issues
+      const deleteIndices = changes
+        .filter(c => c.type === 'delete')
+        .map(c => c.rowIndex)
+        .sort((a, b) => b - a); // Sort descending
+
+      for (const index of deleteIndices) {
+        updatedResults.splice(index, 1);
+      }
+
+      // Update results with applied changes
+      updateTabQueryState(tab.id, {
+        results: updatedResults,
+        count: updatedResults.length,
+        scannedCount: queryState.scannedCount - deleteIndices.length,
+      });
+
+      // Clear pending changes and close dialog
       clearChangesForTab(tab.id);
       setShowConfirmDialog(false);
-
-      // Re-scan to get updated data
-      updateTabQueryState(tab.id, {
-        results: [],
-        lastEvaluatedKey: undefined,
-        count: 0,
-        scannedCount: 0,
-      });
     } catch (error) {
       console.error('Failed to apply changes:', error);
     } finally {
       setIsSaving(false);
     }
-  }, [selectedProfile, tab.id, tableInfo, getChangesForTab, clearChangesForTab, updateTabQueryState]);
+  }, [selectedProfile, tab.id, tableInfo, getChangesForTab, clearChangesForTab, updateTabQueryState, queryState]);
 
   const handleClearResults = () => {
     updateTabQueryState(tab.id, {
