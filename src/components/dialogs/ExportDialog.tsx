@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Check, Download } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
@@ -56,13 +56,42 @@ export function ExportDialog({
   const [selectedFields, setSelectedFields] = useState<Set<string>>(() => new Set(fields));
   const [exportSelected, setExportSelected] = useState(selectedRowIndices.length > 0);
 
-  // Reset selection when dialog opens
+  const rowsToExport = useMemo(() =>
+    exportSelected && selectedRowIndices.length > 0
+      ? selectedRowIndices.map(idx => rows[idx]).filter(Boolean)
+      : rows,
+    [exportSelected, selectedRowIndices, rows]
+  );
+
+  // Compute all fields from the actual rows being exported to ensure
+  // nested objects and all fields are properly detected
+  const allFieldsFromRows = useMemo(() => {
+    const fieldSet = new Set<string>();
+    rowsToExport.forEach(row => {
+      Object.keys(row).forEach(key => fieldSet.add(key));
+    });
+    // Sort with common key fields first
+    return Array.from(fieldSet).sort((a, b) => {
+      // pk/sk pattern fields first
+      const aIsPk = a === 'pk' || a === 'PK' || a.toLowerCase().includes('partitionkey');
+      const bIsPk = b === 'pk' || b === 'PK' || b.toLowerCase().includes('partitionkey');
+      const aIsSk = a === 'sk' || a === 'SK' || a.toLowerCase().includes('sortkey');
+      const bIsSk = b === 'sk' || b === 'SK' || b.toLowerCase().includes('sortkey');
+      if (aIsPk && !bIsPk) return -1;
+      if (bIsPk && !aIsPk) return 1;
+      if (aIsSk && !bIsSk) return -1;
+      if (bIsSk && !aIsSk) return 1;
+      return a.localeCompare(b);
+    });
+  }, [rowsToExport]);
+
+  // Reset selection when dialog opens - use comprehensive field list
   useEffect(() => {
     if (isOpen) {
-      setSelectedFields(new Set(fields));
+      setSelectedFields(new Set(allFieldsFromRows));
       setExportSelected(selectedRowIndices.length > 0);
     }
-  }, [isOpen, fields, selectedRowIndices.length]);
+  }, [isOpen, allFieldsFromRows, selectedRowIndices.length]);
 
   const toggleField = (field: string) => {
     setSelectedFields(prev => {
@@ -76,22 +105,27 @@ export function ExportDialog({
     });
   };
 
-  const selectAll = () => setSelectedFields(new Set(fields));
+  const selectAll = () => setSelectedFields(new Set(allFieldsFromRows));
   const selectNone = () => setSelectedFields(new Set());
-
-  const rowsToExport = exportSelected && selectedRowIndices.length > 0
-    ? selectedRowIndices.map(idx => rows[idx]).filter(Boolean)
-    : rows;
 
   const handleExport = () => {
     const fieldsArray = Array.from(selectedFields);
-    const filteredRows = rowsToExport.map(row => {
-      const filtered: Record<string, unknown> = {};
-      fieldsArray.forEach(f => {
-        if (f in row) filtered[f] = row[f];
-      });
-      return filtered;
-    });
+
+    // When all fields are selected, export raw rows to preserve all nested objects
+    // This avoids any potential issues with field filtering missing data
+    const allFieldsSelected = fieldsArray.length === allFieldsFromRows.length;
+
+    const filteredRows = allFieldsSelected
+      ? rowsToExport.map(row => ({ ...row })) // Shallow copy to avoid mutation
+      : rowsToExport.map(row => {
+          const filtered: Record<string, unknown> = {};
+          fieldsArray.forEach(f => {
+            if (Object.prototype.hasOwnProperty.call(row, f)) {
+              filtered[f] = row[f];
+            }
+          });
+          return filtered;
+        });
 
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
     const filename = `${tableName}_${timestamp}`;
@@ -188,7 +222,7 @@ export function ExportDialog({
           {/* Field Selection */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium">Fields ({selectedFields.size}/{fields.length})</label>
+              <label className="text-sm font-medium">Fields ({selectedFields.size}/{allFieldsFromRows.length})</label>
               <div className="flex items-center gap-2">
                 <button
                   onClick={selectAll}
@@ -206,7 +240,7 @@ export function ExportDialog({
               </div>
             </div>
             <div className="max-h-[200px] overflow-y-auto border rounded-md p-2 space-y-1">
-              {fields.map(field => (
+              {allFieldsFromRows.map(field => (
                 <button
                   key={field}
                   onClick={() => toggleField(field)}
