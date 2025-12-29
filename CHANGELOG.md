@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/BrianVia/dynomite/compare/v1.5.1...v1.6.0) (2025-12-29)
+
+
+### Features
+
+* add bulk JSON import functionality ([#12](https://github.com/BrianVia/dynomite/issues/12)) ([db28f06](https://github.com/BrianVia/dynomite/commit/db28f065808b739e9175144fb01a13bac54e2417))
+
+
+### Bug Fixes
+
+* preserve nested objects in export by detecting all fields from rows ([#14](https://github.com/BrianVia/dynomite/issues/14)) ([c436de5](https://github.com/BrianVia/dynomite/commit/c436de59642e42b11870ac9f275babf815458d6b))
+
 ## [1.5.1](https://github.com/BrianVia/dynomite/compare/v1.5.0...v1.5.1) (2025-12-23)
 
 
