@@ -51,6 +51,7 @@ import { ExportDialog } from './dialogs/ExportDialog';
 import { JsonEditorDialog } from './dialogs/JsonEditorDialog';
 import { SaveBookmarkDialog } from './dialogs/SaveBookmarkDialog';
 import { InsertRowDialog } from './dialogs/InsertRowDialog';
+import { BulkImportDialog } from './dialogs/BulkImportDialog';
 import { useTabsStore, type Tab } from '@/stores/tabs-store';
 import { useProfileStore } from '@/stores/profile-store';
 import { usePendingChangesStore, type PendingChange } from '@/stores/pending-changes-store';
@@ -1129,6 +1130,7 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
   const [showFieldPicker, setShowFieldPicker] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showInsertDialog, setShowInsertDialog] = useState(false);
+  const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
 
   // Get PK and SK attribute names
   const hashKeyAttr = tableInfo.keySchema.find((k) => k.keyType === 'HASH')?.attributeName;
@@ -1815,6 +1817,10 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
             <Plus className="h-3 w-3 mr-1" />
             <span className="text-xs">Insert</span>
           </Button>
+          <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setShowBulkImportDialog(true)} title="Bulk import from JSON">
+            <Download className="h-3 w-3 mr-1 rotate-180" />
+            <span className="text-xs">Import</span>
+          </Button>
           <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleClearResults} title="Clear results">
             <X className="h-3 w-3" />
           </Button>
@@ -2140,6 +2146,23 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
         tableInfo={tableInfo}
         profileName={tab.profileName}
         existingColumns={allFieldNames}
+      />
+
+      {/* Bulk Import Dialog */}
+      <BulkImportDialog
+        isOpen={showBulkImportDialog}
+        onClose={() => setShowBulkImportDialog(false)}
+        onImported={() => {
+          // Clear results to encourage re-query
+          updateTabQueryState(tab.id, {
+            results: [],
+            count: 0,
+            scannedCount: 0,
+            lastEvaluatedKey: undefined,
+          });
+        }}
+        tableInfo={tableInfo}
+        profileName={tab.profileName}
       />
     </div>
   );
