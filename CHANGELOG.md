@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.0](https://github.com/BrianVia/dynomite/compare/v1.6.0...v1.7.0) (2026-01-06)
+
+
+### Features
+
+* add input validation to all IPC handlers ([61657e6](https://github.com/BrianVia/dynomite/commit/61657e6541936aa0c86336c3b004ff43d3f9867f))
+* support numeric key types in DynamoDB queries ([6f908eb](https://github.com/BrianVia/dynomite/commit/6f908eb99cb25776a01d027bd004859ec2e8d75c))
+
+
+### Bug Fixes
+
+* prevent query progress race conditions and improve error handling ([3a4edb6](https://github.com/BrianVia/dynomite/commit/3a4edb6effd066be4dab5864e0985d1e7500619a))
+
 ## [1.6.0](https://github.com/BrianVia/dynomite/compare/v1.5.1...v1.6.0) (2025-12-29)
 
 
