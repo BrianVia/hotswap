@@ -484,6 +484,14 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
   const pkAttr = keySchema.find((k) => k.keyType === 'HASH');
   const skAttr = keySchema.find((k) => k.keyType === 'RANGE');
 
+  // Get attribute types for PK and SK from attributeDefinitions
+  const pkAttrType = pkAttr
+    ? tableInfo.attributeDefinitions.find(a => a.attributeName === pkAttr.attributeName)?.attributeType
+    : undefined;
+  const skAttrType = skAttr
+    ? tableInfo.attributeDefinitions.find(a => a.attributeName === skAttr.attributeName)?.attributeType
+    : undefined;
+
   // Extract available attribute names from fetched results for filter suggestions
   // Sample first 100 items for performance - DynamoDB items have consistent schema
   const availableAttributes = useMemo(() => {
@@ -560,14 +568,22 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
 
     // Accumulate items from progress events for streaming display
     let accumulatedItems: Record<string, unknown>[] = [];
+    // Track the queryId for this specific query to filter progress events
+    let currentQueryId: string | undefined;
 
     // Listen for query start to capture query ID for cancellation
     const unsubscribeStart = window.dynomite.onQueryStarted(({ queryId }) => {
+      currentQueryId = queryId;
       updateTabQueryState(tab.id, { currentQueryId: queryId });
     });
 
     // Listen for progress updates from backend - stream items as they arrive
+    // Only process events that match this tab's query ID to avoid race conditions
     const unsubscribe = window.dynomite.onQueryProgress((progress) => {
+      // Filter: only process progress for this tab's current query
+      if (progress.queryId && currentQueryId && progress.queryId !== currentQueryId) {
+        return; // Ignore progress from other tabs' queries
+      }
       if (progress.items && progress.items.length > 0) {
         accumulatedItems = [...accumulatedItems, ...progress.items];
       }
@@ -587,7 +603,7 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
         tableName: tableInfo.tableName,
         indexName: queryState.selectedIndex || undefined,
         keyCondition: {
-          pk: { name: pkAttr?.attributeName || '', value: localPkValue },
+          pk: { name: pkAttr?.attributeName || '', value: localPkValue, valueType: pkAttrType },
         },
         filters: validFilters.length > 0 ? validFilters : undefined,
         scanIndexForward: queryState.scanForward,
@@ -600,6 +616,7 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
           operator: queryState.skOperator,
           value: localSkValue,
           value2: queryState.skOperator === 'between' ? localSkEndValue : undefined,
+          valueType: skAttrType,
         };
       }
 
@@ -646,14 +663,22 @@ const TabQueryBuilder = memo(function TabQueryBuilder({ tab, tableInfo }: TabQue
 
     // Accumulate items from progress events for streaming display
     let accumulatedItems: Record<string, unknown>[] = [];
+    // Track the queryId for this specific scan to filter progress events
+    let currentQueryId: string | undefined;
 
     // Listen for query start to capture query ID for cancellation
     const unsubscribeStart = window.dynomite.onQueryStarted(({ queryId }) => {
+      currentQueryId = queryId;
       updateTabQueryState(tab.id, { currentQueryId: queryId });
     });
 
     // Listen for progress updates from backend - stream items as they arrive
+    // Only process events that match this tab's query ID to avoid race conditions
     const unsubscribe = window.dynomite.onQueryProgress((progress) => {
+      // Filter: only process progress for this tab's current query
+      if (progress.queryId && currentQueryId && progress.queryId !== currentQueryId) {
+        return; // Ignore progress from other tabs' queries
+      }
       if (progress.items && progress.items.length > 0) {
         accumulatedItems = [...accumulatedItems, ...progress.items];
       }
@@ -1472,10 +1497,14 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
     if (!selectedProfile) return;
 
     setIsSaving(true);
+    const allErrors: string[] = [];
+    let successCount = 0;
+
     try {
       const changes = getChangesForTab(tab.id);
       const operations: BatchWriteOperation[] = [];
 
+      // Process updates individually
       for (const change of changes) {
         if (change.type === 'delete') {
           operations.push({
@@ -1492,62 +1521,99 @@ const TabResultsTable = memo(function TabResultsTable({ tab, tableInfo, onFetchM
           });
         } else if (change.type === 'update' && change.field) {
           // For updates, we need to send just the field update
-          await window.dynomite.updateItem(
-            selectedProfile.name,
-            tableInfo.tableName,
-            change.primaryKey,
-            { [change.field]: change.newValue }
-          );
+          try {
+            await window.dynomite.updateItem(
+              selectedProfile.name,
+              tableInfo.tableName,
+              change.primaryKey,
+              { [change.field]: change.newValue }
+            );
+            successCount++;
+          } catch (updateError) {
+            allErrors.push(`Update failed for field "${change.field}": ${(updateError as Error).message}`);
+          }
         }
       }
 
       // Execute batch operations (deletes and pk-changes)
       if (operations.length > 0) {
-        await window.dynomite.batchWrite(selectedProfile.name, operations);
+        const batchResult = await window.dynomite.batchWrite(selectedProfile.name, operations);
+
+        // Check for errors in batch write result
+        if (batchResult.errors && batchResult.errors.length > 0) {
+          allErrors.push(...batchResult.errors);
+        }
+        successCount += batchResult.processed;
       }
 
-      // Apply changes locally to results instead of clearing them
-      // This keeps the data in sync without needing a re-query
-      let updatedResults = [...queryState.results];
+      // Only apply changes if ALL operations succeeded
+      if (allErrors.length === 0) {
+        // Apply changes locally to results instead of clearing them
+        // This keeps the data in sync without needing a re-query
+        let updatedResults = [...queryState.results];
 
-      // First, apply updates and pk-changes (don't change array length)
-      for (const change of changes) {
-        if (change.type === 'update' && change.field !== undefined) {
-          if (updatedResults[change.rowIndex]) {
-            updatedResults[change.rowIndex] = {
-              ...updatedResults[change.rowIndex],
-              [change.field]: change.newValue,
-            };
-          }
-        } else if (change.type === 'pk-change' && change.newItem) {
-          if (updatedResults[change.rowIndex]) {
-            updatedResults[change.rowIndex] = change.newItem;
+        // First, apply updates and pk-changes (don't change array length)
+        for (const change of changes) {
+          if (change.type === 'update' && change.field !== undefined) {
+            if (updatedResults[change.rowIndex]) {
+              updatedResults[change.rowIndex] = {
+                ...updatedResults[change.rowIndex],
+                [change.field]: change.newValue,
+              };
+            }
+          } else if (change.type === 'pk-change' && change.newItem) {
+            if (updatedResults[change.rowIndex]) {
+              updatedResults[change.rowIndex] = change.newItem;
+            }
           }
         }
+
+        // Then apply deletes in reverse order to avoid index shifting issues
+        const deleteIndices = changes
+          .filter(c => c.type === 'delete')
+          .map(c => c.rowIndex)
+          .sort((a, b) => b - a); // Sort descending
+
+        for (const index of deleteIndices) {
+          updatedResults.splice(index, 1);
+        }
+
+        // Update results with applied changes
+        updateTabQueryState(tab.id, {
+          results: updatedResults,
+          count: updatedResults.length,
+          scannedCount: queryState.scannedCount - deleteIndices.length,
+          error: null,
+        });
+
+        // Clear pending changes and close dialog
+        clearChangesForTab(tab.id);
+        setShowConfirmDialog(false);
+      } else {
+        // Show error to user - some operations failed
+        const errorMessage = allErrors.length === 1
+          ? allErrors[0]
+          : `${allErrors.length} operations failed:\n• ${allErrors.slice(0, 3).join('\n• ')}${allErrors.length > 3 ? `\n• ...and ${allErrors.length - 3} more` : ''}`;
+
+        updateTabQueryState(tab.id, {
+          error: errorMessage,
+        });
+
+        // If some succeeded, show partial success
+        if (successCount > 0) {
+          console.warn(`Partial success: ${successCount} operations succeeded, ${allErrors.length} failed`);
+        }
+
+        // Close dialog even on error so user can see the error message
+        setShowConfirmDialog(false);
       }
-
-      // Then apply deletes in reverse order to avoid index shifting issues
-      const deleteIndices = changes
-        .filter(c => c.type === 'delete')
-        .map(c => c.rowIndex)
-        .sort((a, b) => b - a); // Sort descending
-
-      for (const index of deleteIndices) {
-        updatedResults.splice(index, 1);
-      }
-
-      // Update results with applied changes
-      updateTabQueryState(tab.id, {
-        results: updatedResults,
-        count: updatedResults.length,
-        scannedCount: queryState.scannedCount - deleteIndices.length,
-      });
-
-      // Clear pending changes and close dialog
-      clearChangesForTab(tab.id);
-      setShowConfirmDialog(false);
     } catch (error) {
       console.error('Failed to apply changes:', error);
+      updateTabQueryState(tab.id, {
+        error: `Failed to apply changes: ${(error as Error).message}`,
+      });
+      // Close dialog on error so user can see the error message
+      setShowConfirmDialog(false);
     } finally {
       setIsSaving(false);
     }
@@ -2224,13 +2290,33 @@ export function TabContent() {
     }
     const pkAttr = keySchema.find(k => k.keyType === 'HASH');
     const skAttr = keySchema.find(k => k.keyType === 'RANGE');
+    // Get attribute types for PK and SK from attributeDefinitions
+    const pkAttrType = pkAttr
+      ? tableInfo.attributeDefinitions.find(a => a.attributeName === pkAttr.attributeName)?.attributeType
+      : undefined;
+    const skAttrType = skAttr
+      ? tableInfo.attributeDefinitions.find(a => a.attributeName === skAttr.attributeName)?.attributeType
+      : undefined;
     const validFilters = queryState.filters.filter(f => f.attribute.trim());
 
     // Accumulate new items from progress events
     let accumulatedItems: Record<string, unknown>[] = [...existingResults];
+    // Track the queryId for this specific fetch to filter progress events
+    let currentFetchQueryId: string | undefined;
+
+    // Listen for query start to capture query ID
+    const unsubscribeStart = window.dynomite.onQueryStarted(({ queryId }) => {
+      currentFetchQueryId = queryId;
+      updateTabQueryState(activeTab.id, { currentQueryId: queryId });
+    });
 
     // Listen for progress updates from backend - stream items as they arrive
+    // Only process events that match this tab's query ID to avoid race conditions
     const unsubscribe = window.dynomite.onQueryProgress((progress) => {
+      // Filter: only process progress for this tab's current query
+      if (progress.queryId && currentFetchQueryId && progress.queryId !== currentFetchQueryId) {
+        return; // Ignore progress from other tabs' queries
+      }
       if (progress.items && progress.items.length > 0) {
         accumulatedItems = [...accumulatedItems, ...progress.items];
       }
@@ -2240,6 +2326,7 @@ export function TabContent() {
         scannedCount: existingScanned + progress.scannedCount,
         queryElapsedMs: Date.now() - startTime,
         isFetchingMore: !progress.isComplete,
+        currentQueryId: progress.isComplete ? undefined : progress.queryId,
       });
     });
 
@@ -2250,7 +2337,7 @@ export function TabContent() {
           tableName: tableInfo.tableName,
           indexName: queryState.selectedIndex || undefined,
           keyCondition: {
-            pk: { name: pkAttr.attributeName, value: queryState.pkValue },
+            pk: { name: pkAttr.attributeName, value: queryState.pkValue, valueType: pkAttrType },
           },
           filters: validFilters.length > 0 ? validFilters : undefined,
           scanIndexForward: queryState.scanForward,
@@ -2263,6 +2350,7 @@ export function TabContent() {
             operator: queryState.skOperator,
             value: queryState.skValue,
             value2: queryState.skOperator === 'between' ? queryState.skValue2 : undefined,
+            valueType: skAttrType,
           };
         }
 
@@ -2300,9 +2388,11 @@ export function TabContent() {
         error: (error as Error).message,
         isFetchingMore: false,
         queryElapsedMs: Date.now() - startTime,
+        currentQueryId: undefined,
       });
     } finally {
       unsubscribe();
+      unsubscribeStart();
     }
   }, [activeTab, tableInfo, updateTabQueryState]);
 
@@ -2339,9 +2429,22 @@ export function TabContent() {
 
         // Accumulate items from progress events for streaming display
         let accumulatedItems: Record<string, unknown>[] = [];
+        // Track the queryId for this specific scan to filter progress events
+        let currentScanQueryId: string | undefined;
+
+        // Listen for query start to capture query ID
+        const unsubscribeStart = window.dynomite.onQueryStarted(({ queryId }) => {
+          currentScanQueryId = queryId;
+          updateTabQueryState(activeTab.id, { currentQueryId: queryId });
+        });
 
         // Listen for progress updates from backend - stream items as they arrive
+        // Only process events that match this tab's query ID to avoid race conditions
         const unsubscribe = window.dynomite.onQueryProgress((progress) => {
+          // Filter: only process progress for this tab's current query
+          if (progress.queryId && currentScanQueryId && progress.queryId !== currentScanQueryId) {
+            return; // Ignore progress from other tabs' queries
+          }
           if (progress.items && progress.items.length > 0) {
             accumulatedItems = [...accumulatedItems, ...progress.items];
           }
@@ -2352,6 +2455,7 @@ export function TabContent() {
             queryElapsedMs: progress.elapsedMs,
             isFetchingMore: !progress.isComplete,
             isLoading: !progress.isComplete,
+            currentQueryId: progress.isComplete ? undefined : progress.queryId,
           });
         });
 
@@ -2376,9 +2480,11 @@ export function TabContent() {
             isLoading: false,
             isFetchingMore: false,
             queryElapsedMs: Date.now() - startTime,
+            currentQueryId: undefined,
           });
         } finally {
           unsubscribe();
+          unsubscribeStart();
         }
       };
       executeInitialScan();
