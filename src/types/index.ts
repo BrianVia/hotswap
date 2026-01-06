@@ -65,6 +65,9 @@ export interface LocalSecondaryIndex {
 export type SkOperator = 'eq' | 'begins_with' | 'between' | 'lt' | 'lte' | 'gt' | 'gte';
 export type FilterOperator = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte' | 'begins_with' | 'contains' | 'exists' | 'not_exists' | 'between';
 
+// DynamoDB attribute type for key values
+export type DynamoKeyValueType = 'S' | 'N' | 'B';
+
 export interface FilterCondition {
   id: string;
   attribute: string;
@@ -77,8 +80,8 @@ export interface QueryParams {
   tableName: string;
   indexName?: string;
   keyCondition: {
-    pk: { name: string; value: string };
-    sk?: { name: string; operator: SkOperator; value: string; value2?: string };
+    pk: { name: string; value: string; valueType?: DynamoKeyValueType };
+    sk?: { name: string; operator: SkOperator; value: string; value2?: string; valueType?: DynamoKeyValueType };
   };
   filters?: FilterCondition[];
   limit?: number;

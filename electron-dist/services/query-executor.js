@@ -1,4 +1,20 @@
 /**
+ * Coerce a string value to the appropriate DynamoDB type
+ * Returns number for 'N' type, string for 'S' type, original string for 'B' or undefined
+ */
+function coerceKeyValue(value, valueType) {
+    if (valueType === 'N') {
+        const num = Number(value);
+        if (!isNaN(num) && isFinite(num)) {
+            return num;
+        }
+        // If parsing fails, return original string and let DynamoDB handle the error
+        console.warn(`Failed to parse numeric value: ${value}`);
+    }
+    // For 'S', 'B', or undefined, return as string
+    return value;
+}
+/**
  * Build FilterExpression from filter conditions
  */
 function buildFilterExpression(filters, expressionAttributeNames, expressionAttributeValues) {
@@ -66,14 +82,14 @@ export function buildQueryCommand(params) {
         '#pk': keyCondition.pk.name,
     };
     const expressionAttributeValues = {
-        ':pk': keyCondition.pk.value,
+        ':pk': coerceKeyValue(keyCondition.pk.value, keyCondition.pk.valueType),
     };
     let keyConditionExpression = '#pk = :pk';
     // Add sort key condition if provided
     if (keyCondition.sk) {
-        const { name, operator, value, value2 } = keyCondition.sk;
+        const { name, operator, value, value2, valueType } = keyCondition.sk;
         expressionAttributeNames['#sk'] = name;
-        expressionAttributeValues[':sk'] = value;
+        expressionAttributeValues[':sk'] = coerceKeyValue(value, valueType);
         switch (operator) {
             case 'eq':
                 keyConditionExpression += ' AND #sk = :sk';
@@ -83,7 +99,7 @@ export function buildQueryCommand(params) {
                 break;
             case 'between':
                 keyConditionExpression += ' AND #sk BETWEEN :sk AND :sk2';
-                expressionAttributeValues[':sk2'] = value2;
+                expressionAttributeValues[':sk2'] = value2 ? coerceKeyValue(value2, valueType) : value2;
                 break;
             case 'lt':
                 keyConditionExpression += ' AND #sk < :sk';

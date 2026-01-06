@@ -71,12 +71,18 @@ export interface FilterCondition {
   value2?: string; // for 'between'
 }
 
+// DynamoDB attribute type for key values
+export type DynamoKeyValueType = 'S' | 'N' | 'B';
+
+// Sort key operator types
+export type SkOperator = 'eq' | 'begins_with' | 'between' | 'lt' | 'lte' | 'gt' | 'gte';
+
 export interface QueryParams {
   tableName: string;
   indexName?: string;
   keyCondition: {
-    pk: { name: string; value: string };
-    sk?: { name: string; operator: 'eq' | 'begins_with' | 'between' | 'lt' | 'lte' | 'gt' | 'gte'; value: string; value2?: string };
+    pk: { name: string; value: string; valueType?: DynamoKeyValueType };
+    sk?: { name: string; operator: SkOperator; value: string; value2?: string; valueType?: DynamoKeyValueType };
   };
   filters?: FilterCondition[];
   limit?: number;

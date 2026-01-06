@@ -1,5 +1,5 @@
 import { QueryCommandInput, ScanCommandInput } from '@aws-sdk/lib-dynamodb';
-import type { QueryParams, FilterCondition } from '../types.js';
+import type { QueryParams, FilterCondition, DynamoKeyValueType } from '../types.js';
 
 export interface ScanParams {
   tableName: string;
@@ -7,6 +7,23 @@ export interface ScanParams {
   limit?: number;
   exclusiveStartKey?: Record<string, unknown>;
   filters?: FilterCondition[];
+}
+
+/**
+ * Coerce a string value to the appropriate DynamoDB type
+ * Returns number for 'N' type, string for 'S' type, original string for 'B' or undefined
+ */
+function coerceKeyValue(value: string, valueType?: DynamoKeyValueType): string | number {
+  if (valueType === 'N') {
+    const num = Number(value);
+    if (!isNaN(num) && isFinite(num)) {
+      return num;
+    }
+    // If parsing fails, return original string and let DynamoDB handle the error
+    console.warn(`Failed to parse numeric value: ${value}`);
+  }
+  // For 'S', 'B', or undefined, return as string
+  return value;
 }
 
 /**
@@ -86,16 +103,16 @@ export function buildQueryCommand(params: QueryParams): QueryCommandInput {
     '#pk': keyCondition.pk.name,
   };
   const expressionAttributeValues: Record<string, unknown> = {
-    ':pk': keyCondition.pk.value,
+    ':pk': coerceKeyValue(keyCondition.pk.value, keyCondition.pk.valueType),
   };
 
   let keyConditionExpression = '#pk = :pk';
 
   // Add sort key condition if provided
   if (keyCondition.sk) {
-    const { name, operator, value, value2 } = keyCondition.sk;
+    const { name, operator, value, value2, valueType } = keyCondition.sk;
     expressionAttributeNames['#sk'] = name;
-    expressionAttributeValues[':sk'] = value;
+    expressionAttributeValues[':sk'] = coerceKeyValue(value, valueType);
 
     switch (operator) {
       case 'eq':
@@ -106,7 +123,7 @@ export function buildQueryCommand(params: QueryParams): QueryCommandInput {
         break;
       case 'between':
         keyConditionExpression += ' AND #sk BETWEEN :sk AND :sk2';
-        expressionAttributeValues[':sk2'] = value2;
+        expressionAttributeValues[':sk2'] = value2 ? coerceKeyValue(value2, valueType) : value2;
         break;
       case 'lt':
         keyConditionExpression += ' AND #sk < :sk';
