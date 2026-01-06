@@ -1,12 +1,73 @@
 import { ipcMain, nativeTheme, BrowserWindow, app } from 'electron';
 import { ListTablesCommand, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
-import { QueryCommand, ScanCommand, PutCommand, UpdateCommand, DeleteCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, ScanCommand, PutCommand, UpdateCommand, DeleteCommand, TransactWriteCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { parseAwsConfig } from '../services/config-parser.js';
 import { checkAuthStatus, loginWithSSO } from '../services/credential-manager.js';
 import { getDynamoDBClient, getDynamoDBDocClient, clearClientsForProfile } from '../services/dynamo-client-factory.js';
 import { buildQueryCommand, buildScanCommand, type ScanParams } from '../services/query-executor.js';
 import { getUpdateStatus, checkForUpdates, quitAndInstall } from '../updater.js';
-import type { TableInfo, KeySchemaElement, AttributeDefinition, GlobalSecondaryIndex, LocalSecondaryIndex, QueryParams, QueryResult, BatchQueryResult, QueryProgress } from '../types.js';
+import type { TableInfo, QueryParams, QueryResult, BatchQueryResult, QueryProgress } from '../types.js';
+
+// ============ Input Validation Helpers ============
+
+/**
+ * Validate a profile name - must be a non-empty string with valid characters
+ */
+function validateProfileName(profileName: unknown): profileName is string {
+  return typeof profileName === 'string' &&
+    profileName.length > 0 &&
+    profileName.length <= 256 &&
+    /^[a-zA-Z0-9_-]+$/.test(profileName);
+}
+
+/**
+ * Validate a table name - AWS DynamoDB table name rules
+ */
+function validateTableName(tableName: unknown): tableName is string {
+  return typeof tableName === 'string' &&
+    tableName.length >= 3 &&
+    tableName.length <= 255 &&
+    /^[a-zA-Z0-9._-]+$/.test(tableName);
+}
+
+/**
+ * Validate query params - basic structure validation
+ */
+function validateQueryParams(params: unknown): params is QueryParams {
+  if (!params || typeof params !== 'object') return false;
+  const p = params as Record<string, unknown>;
+  if (!validateTableName(p.tableName)) return false;
+  if (!p.keyCondition || typeof p.keyCondition !== 'object') return false;
+  const kc = p.keyCondition as Record<string, unknown>;
+  if (!kc.pk || typeof kc.pk !== 'object') return false;
+  return true;
+}
+
+/**
+ * Validate scan params - basic structure validation
+ */
+function validateScanParams(params: unknown): params is ScanParams {
+  if (!params || typeof params !== 'object') return false;
+  const p = params as Record<string, unknown>;
+  return validateTableName(p.tableName);
+}
+
+/**
+ * Validate a DynamoDB item - must be a non-null object
+ */
+function validateItem(item: unknown): item is Record<string, unknown> {
+  return item !== null && typeof item === 'object' && !Array.isArray(item);
+}
+
+/**
+ * Validate max results - must be a positive integer
+ */
+function validateMaxResults(maxResults: unknown): maxResults is number {
+  return typeof maxResults === 'number' &&
+    Number.isInteger(maxResults) &&
+    maxResults > 0 &&
+    maxResults <= 100000;
+}
 
 export function registerIpcHandlers(): void {
   // ============ Profile Operations ============
@@ -22,8 +83,12 @@ export function registerIpcHandlers(): void {
   });
 
   // ============ SSO Authentication ============
-  
+
   ipcMain.handle('aws:check-auth-status', async (_event, profileName: string) => {
+    if (!validateProfileName(profileName)) {
+      console.error('Invalid profile name:', profileName);
+      return { authenticated: false, profileName: String(profileName) };
+    }
     try {
       return await checkAuthStatus(profileName);
     } catch (error) {
@@ -33,6 +98,9 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('aws:sso-login', async (_event, profileName: string) => {
+    if (!validateProfileName(profileName)) {
+      return { success: false, error: 'Invalid profile name' };
+    }
     try {
       // Clear cached clients before re-auth
       clearClientsForProfile(profileName);
@@ -44,8 +112,11 @@ export function registerIpcHandlers(): void {
   });
 
   // ============ DynamoDB Operations ============
-  
+
   ipcMain.handle('dynamo:list-tables', async (_event, profileName: string) => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
     try {
       const client = await getDynamoDBClient(profileName);
       const tables: string[] = [];
@@ -76,6 +147,12 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('dynamo:describe-table', async (_event, profileName: string, tableName: string) => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
+    if (!validateTableName(tableName)) {
+      throw new Error('Invalid table name');
+    }
     try {
       const client = await getDynamoDBClient(profileName);
       const command = new DescribeTableCommand({ TableName: tableName });
@@ -134,6 +211,12 @@ export function registerIpcHandlers(): void {
   // ============ DynamoDB Query/Scan Operations ============
 
   ipcMain.handle('dynamo:query', async (_event, profileName: string, params: QueryParams): Promise<QueryResult> => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
+    if (!validateQueryParams(params)) {
+      throw new Error('Invalid query parameters');
+    }
     try {
       const docClient = await getDynamoDBDocClient(profileName);
       const commandInput = buildQueryCommand(params);
@@ -153,6 +236,12 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('dynamo:scan', async (_event, profileName: string, params: ScanParams): Promise<QueryResult> => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
+    if (!validateScanParams(params)) {
+      throw new Error('Invalid scan parameters');
+    }
     try {
       const docClient = await getDynamoDBDocClient(profileName);
       const commandInput = buildScanCommand(params);
@@ -184,6 +273,15 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('dynamo:query-batch', async (event, profileName: string, params: QueryParams, maxResults: number): Promise<BatchQueryResult> => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
+    if (!validateQueryParams(params)) {
+      throw new Error('Invalid query parameters');
+    }
+    if (!validateMaxResults(maxResults)) {
+      throw new Error('Invalid max results (must be 1-100000)');
+    }
     const queryId = `query-${++queryIdCounter}`;
 
     try {
@@ -278,6 +376,15 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('dynamo:scan-batch', async (event, profileName: string, params: ScanParams, maxResults: number): Promise<BatchQueryResult> => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
+    if (!validateScanParams(params)) {
+      throw new Error('Invalid scan parameters');
+    }
+    if (!validateMaxResults(maxResults)) {
+      throw new Error('Invalid max results (must be 1-100000)');
+    }
     const queryId = `scan-${++queryIdCounter}`;
 
     try {
@@ -374,6 +481,15 @@ export function registerIpcHandlers(): void {
   // ============ DynamoDB Write Operations ============
 
   ipcMain.handle('dynamo:put-item', async (_event, profileName: string, tableName: string, item: Record<string, unknown>) => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
+    if (!validateTableName(tableName)) {
+      throw new Error('Invalid table name');
+    }
+    if (!validateItem(item)) {
+      throw new Error('Invalid item');
+    }
     try {
       const docClient = await getDynamoDBDocClient(profileName);
       await docClient.send(new PutCommand({ TableName: tableName, Item: item }));
@@ -391,6 +507,18 @@ export function registerIpcHandlers(): void {
     key: Record<string, unknown>,
     updates: Record<string, unknown>
   ) => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
+    if (!validateTableName(tableName)) {
+      throw new Error('Invalid table name');
+    }
+    if (!validateItem(key)) {
+      throw new Error('Invalid key');
+    }
+    if (!validateItem(updates) || Object.keys(updates).length === 0) {
+      throw new Error('Invalid or empty updates');
+    }
     try {
       const docClient = await getDynamoDBDocClient(profileName);
 
@@ -430,6 +558,15 @@ export function registerIpcHandlers(): void {
     tableName: string,
     key: Record<string, unknown>
   ) => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
+    if (!validateTableName(tableName)) {
+      throw new Error('Invalid table name');
+    }
+    if (!validateItem(key)) {
+      throw new Error('Invalid key');
+    }
     try {
       const docClient = await getDynamoDBDocClient(profileName);
       await docClient.send(new DeleteCommand({ TableName: tableName, Key: key }));
@@ -456,6 +593,18 @@ export function registerIpcHandlers(): void {
     profileName: string,
     operations: BatchOperation[]
   ): Promise<{ success: boolean; processed: number; errors: string[] }> => {
+    if (!validateProfileName(profileName)) {
+      throw new Error('Invalid profile name');
+    }
+    if (!Array.isArray(operations) || operations.length === 0) {
+      return { success: true, processed: 0, errors: [] };
+    }
+    // Validate each operation
+    for (const op of operations) {
+      if (!op.tableName || !validateTableName(op.tableName)) {
+        throw new Error('Invalid table name in operation');
+      }
+    }
     try {
       const docClient = await getDynamoDBDocClient(profileName);
       const errors: string[] = [];
@@ -488,14 +637,16 @@ export function registerIpcHandlers(): void {
         }
       }
 
-      // Process regular puts and deletes in batches of 25
+      // Process regular puts and deletes in batches of 25 using BatchWriteCommand
       const regularOps = operations.filter(op => op.type !== 'pk-change');
       const BATCH_SIZE = 25;
+      const MAX_RETRIES = 5;
+      const BASE_DELAY_MS = 100;
 
       for (let i = 0; i < regularOps.length; i += BATCH_SIZE) {
         const batch = regularOps.slice(i, i + BATCH_SIZE);
 
-        // Group by table
+        // Group by table for BatchWriteCommand
         const requestsByTable: Record<string, Array<{ PutRequest?: { Item: Record<string, unknown> }; DeleteRequest?: { Key: Record<string, unknown> } }>> = {};
 
         for (const op of batch) {
@@ -514,30 +665,68 @@ export function registerIpcHandlers(): void {
           }
         }
 
-        // Execute batch write for each table
-        for (const [tableName, requests] of Object.entries(requestsByTable)) {
-          if (requests.length === 0) continue;
+        // Execute BatchWriteCommand with exponential backoff for unprocessed items
+        let unprocessedItems = requestsByTable;
+        let retryCount = 0;
 
+        while (Object.keys(unprocessedItems).length > 0 && retryCount < MAX_RETRIES) {
           try {
-            // Use BatchWriteItem via individual operations since lib-dynamodb doesn't have BatchWriteCommand
-            // We'll do individual operations for simplicity
-            for (const req of requests) {
-              if (req.PutRequest) {
-                await docClient.send(new PutCommand({
-                  TableName: tableName,
-                  Item: req.PutRequest.Item,
-                }));
-              } else if (req.DeleteRequest) {
-                await docClient.send(new DeleteCommand({
-                  TableName: tableName,
-                  Key: req.DeleteRequest.Key,
-                }));
+            const batchWriteResult = await docClient.send(new BatchWriteCommand({
+              RequestItems: unprocessedItems,
+            }));
+
+            // Count how many were processed in this call
+            const itemsInThisBatch = Object.values(unprocessedItems).reduce((sum, arr) => sum + arr.length, 0);
+            const unprocessedCount = batchWriteResult.UnprocessedItems
+              ? Object.values(batchWriteResult.UnprocessedItems).reduce((sum, arr) => sum + arr.length, 0)
+              : 0;
+            processed += itemsInThisBatch - unprocessedCount;
+
+            // Handle unprocessed items with exponential backoff
+            if (batchWriteResult.UnprocessedItems && Object.keys(batchWriteResult.UnprocessedItems).length > 0) {
+              unprocessedItems = batchWriteResult.UnprocessedItems as typeof unprocessedItems;
+              retryCount++;
+
+              if (retryCount < MAX_RETRIES) {
+                // Exponential backoff: 100ms, 200ms, 400ms, 800ms, 1600ms
+                const delay = BASE_DELAY_MS * Math.pow(2, retryCount - 1);
+                await new Promise(resolve => setTimeout(resolve, delay));
               }
-              processed++;
+            } else {
+              // All items processed successfully
+              unprocessedItems = {};
             }
           } catch (err) {
-            errors.push(`Batch operation failed for ${tableName}: ${(err as Error).message}`);
+            // If batch fails entirely, try individual operations as fallback
+            console.warn('BatchWriteCommand failed, falling back to individual operations:', err);
+            for (const [tableName, requests] of Object.entries(unprocessedItems)) {
+              for (const req of requests) {
+                try {
+                  if (req.PutRequest) {
+                    await docClient.send(new PutCommand({
+                      TableName: tableName,
+                      Item: req.PutRequest.Item,
+                    }));
+                  } else if (req.DeleteRequest) {
+                    await docClient.send(new DeleteCommand({
+                      TableName: tableName,
+                      Key: req.DeleteRequest.Key,
+                    }));
+                  }
+                  processed++;
+                } catch (individualErr) {
+                  errors.push(`Write failed for ${tableName}: ${(individualErr as Error).message}`);
+                }
+              }
+            }
+            unprocessedItems = {};
           }
+        }
+
+        // If we still have unprocessed items after max retries, record as errors
+        if (Object.keys(unprocessedItems).length > 0) {
+          const unprocessedCount = Object.values(unprocessedItems).reduce((sum, arr) => sum + arr.length, 0);
+          errors.push(`${unprocessedCount} items failed to write after ${MAX_RETRIES} retries (throttled)`);
         }
 
         // Send progress
