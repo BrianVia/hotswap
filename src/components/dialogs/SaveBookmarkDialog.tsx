@@ -89,8 +89,8 @@ export function SaveBookmarkDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-popover border rounded-lg shadow-lg w-full max-w-md mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm dialog-backdrop">
+      <div className="bg-popover border rounded-lg shadow-lg w-full max-w-md mx-4 dialog-content">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-2">

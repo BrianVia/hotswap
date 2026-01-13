@@ -183,10 +183,10 @@ export function JsonEditorDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm dialog-backdrop"
       onClick={handleBackdropClick}
     >
-      <div className="bg-popover border rounded-lg shadow-lg w-[85vw] h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-popover border rounded-lg shadow-lg w-[85vw] h-[85vh] overflow-hidden flex flex-col dialog-content">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-2">

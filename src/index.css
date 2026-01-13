@@ -213,19 +213,93 @@ body {
   overflow: hidden;
 }
 
-/* Skeleton loading animation */
-@keyframes skeleton-pulse {
-  0%, 100% {
-    opacity: 0.4;
+/* Skeleton loading animation with shimmer */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
   }
-  50% {
-    opacity: 0.7;
+  100% {
+    background-position: 200% 0;
   }
 }
 
 .skeleton {
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-  background: linear-gradient(90deg, var(--color-muted) 0%, var(--color-muted-foreground) 50%, var(--color-muted) 100%);
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    var(--color-muted) 0%,
+    color-mix(in srgb, var(--color-muted-foreground) 15%, var(--color-muted)) 50%,
+    var(--color-muted) 100%
+  );
   background-size: 200% 100%;
   border-radius: 4px;
+}
+
+/* Dialog animations */
+@keyframes dialog-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-content-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.dialog-backdrop {
+  animation: dialog-backdrop-in 0.15s ease-out;
+}
+
+.dialog-content {
+  animation: dialog-content-in 0.2s ease-out;
+}
+
+/* Dropdown animation (reuse context menu style) */
+.dropdown-enter {
+  animation: context-menu-in 0.15s ease-out;
+  transform-origin: top;
+}
+
+/* Error shake animation */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-3px);
+  }
+  40%, 80% {
+    transform: translateX(3px);
+  }
+}
+
+.shake {
+  animation: shake 0.4s ease-out;
+}
+
+/* Checkbox check animation */
+@keyframes checkbox-pop {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.checkbox-animate {
+  animation: checkbox-pop 0.2s ease-out;
 }

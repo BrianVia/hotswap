@@ -181,7 +181,7 @@ export function ProfileSelector() {
           />
 
           {/* Dropdown */}
-          <div className="absolute top-full right-0 z-20 mt-1 w-[500px] rounded-md border bg-popover shadow-lg p-2">
+          <div className="absolute top-full right-0 z-20 mt-1 w-[500px] rounded-md border bg-popover shadow-lg p-2 dropdown-enter">
             <div className="px-3 py-2.5 border-b flex items-center justify-between rounded-t-sm">
               <div className="text-xs text-muted-foreground">
                 Click <Pencil className="h-3 w-3 inline" /> to customize name, color & environment

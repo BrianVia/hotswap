@@ -514,7 +514,7 @@ export function ResultsTable() {
                     key={row.id}
                     onClick={() => toggleRowExpand(rowIndex)}
                     className={cn(
-                      'border-b last:border-0 hover:bg-muted/40 transition-colors cursor-pointer',
+                      'border-b last:border-0 hover:bg-muted/60 transition-colors cursor-pointer',
                       rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/50',
                       expandedRows.has(rowIndex) && 'bg-accent/50'
                     )}

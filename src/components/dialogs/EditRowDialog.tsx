@@ -295,9 +295,9 @@ export function EditRowDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm dialog-backdrop">
       <div
-        className="bg-popover border rounded-lg shadow-lg overflow-hidden flex flex-col relative"
+        className="bg-popover border rounded-lg shadow-lg overflow-hidden flex flex-col relative dialog-content"
         style={{ width: size.width, height: size.height, maxWidth: '95vw', maxHeight: '95vh' }}
       >
         {/* Header */}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Database, Loader2, Search, RefreshCw, AlertCircle } from 'lucide-react';
+import { Database, Loader2, Search, RefreshCw, AlertCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
 import { useProfileStore } from '@/stores/profile-store';
@@ -189,8 +189,16 @@ export function TableList() {
             placeholder="Search tables..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-8 pl-8 pr-3 rounded-md border bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full h-8 pl-8 pr-8 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-shadow duration-150"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
         <Button
           variant="ghost"
