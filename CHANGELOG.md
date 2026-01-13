@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/BrianVia/dynomite/compare/v1.7.0...v1.8.0) (2026-01-13)
+
+
+### Features
+
+* add UI polish and micro-interactions ([4deaa4e](https://github.com/BrianVia/dynomite/commit/4deaa4e3f48edb7869517057ed1f47fb3d3e2656))
+
 ## [1.7.0](https://github.com/BrianVia/dynomite/compare/v1.6.0...v1.7.0) (2026-01-06)
 
 
