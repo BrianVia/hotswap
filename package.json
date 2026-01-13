@@ -1,7 +1,7 @@
 {
   "name": "dynomite",
   "productName": "Dynomite",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "DynamoDB Explorer for AWS SSO profiles",
   "repository": {
     "type": "git",
